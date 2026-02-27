@@ -1,6 +1,9 @@
 # ── Stage 1: deps + build ────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
+# Prisma needs openssl for schema generation
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copy root workspace config
@@ -15,6 +18,9 @@ RUN npm ci --workspace=packages/server --ignore-scripts
 # Copy server source + prisma
 COPY packages/server ./packages/server
 
+# Use the PostgreSQL schema for production build
+RUN cp packages/server/prisma/schema.prod.prisma packages/server/prisma/schema.prisma
+
 # Generate Prisma client (postgresql)
 RUN cd packages/server && npx prisma generate
 
@@ -23,6 +29,9 @@ RUN cd packages/server && npx tsc --project tsconfig.json
 
 # ── Stage 2: lean runtime image ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
+
+# Prisma requires openssl on Alpine
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 

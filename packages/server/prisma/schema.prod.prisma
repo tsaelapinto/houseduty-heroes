@@ -1,11 +1,12 @@
-// This is your Prisma schema file.
+// Production schema — PostgreSQL (used by Dockerfile only)
+// For local dev use schema.prisma (SQLite)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -28,10 +29,10 @@ model User {
   name        String
   role        String   @default("KID")
   avatarSlug  String   @default("default")
-  email       String?  @unique   // parents only
-  passwordHash String? // parents only
-  kidPin      String?            // kids only (bcrypt hashed)
-  morningReminderTime String?    // HH:MM
+  email       String?  @unique
+  passwordHash String?
+  kidPin      String?
+  morningReminderTime String?
   eveningReminderTime String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -44,14 +45,13 @@ model User {
   @@index([householdId])
 }
 
-
 // ─── Duty Template ───────────────────────────────────────────────────────────
 model DutyTemplate {
   id            String   @id @default(uuid())
   householdId   String
   name          String
   defaultPoints Int      @default(10)
-  recurrence    String   @default("daily")  // daily | weekdays | weekends | 3x | 2x | weekly
+  recurrence    String   @default("daily")
   photoRequired Boolean  @default(false)
   isActive      Boolean  @default(true)
   isPrebuilt    Boolean  @default(false)
@@ -65,7 +65,6 @@ model DutyTemplate {
   @@index([householdId])
 }
 
-// many-to-many: which kids are allowed for a template
 model DutyTemplateAllowedKid {
   templateId String
   kidId      String
@@ -90,19 +89,19 @@ model Cycle {
   @@index([householdId])
 }
 
-// ─── Duty Instance (one duty, one day, one kid) ───────────────────────────────
+// ─── Duty Instance ────────────────────────────────────────────────────────────
 model DutyInstance {
-  id                  String          @id @default(uuid())
-  cycleId             String
-  templateId          String?
-  kidId               String
-  date                DateTime
-  nameOverride        String?
-  pointsOverride      Int?
+  id                    String   @id @default(uuid())
+  cycleId               String
+  templateId            String?
+  kidId                 String
+  date                  DateTime
+  nameOverride          String?
+  pointsOverride        Int?
   photoRequiredOverride Boolean?
-  status              String          @default("ASSIGNED")
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  status                String   @default("ASSIGNED")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   cycle      Cycle        @relation(fields: [cycleId], references: [id])
   template   DutyTemplate? @relation(fields: [templateId], references: [id])
@@ -114,7 +113,6 @@ model DutyInstance {
   @@index([kidId])
   @@index([date])
 }
-
 
 // ─── Submission ──────────────────────────────────────────────────────────────
 model Submission {
@@ -143,10 +141,10 @@ model Approval {
 // ─── Photo Asset ─────────────────────────────────────────────────────────────
 model PhotoAsset {
   id              String   @id @default(uuid())
-  storageProvider String   // local | s3 | supabase
+  storageProvider String
   storagePath     String
   createdAt       DateTime @default(now())
-  deleteAt        DateTime // createdAt + 30 days
+  deleteAt        DateTime
 
   submissions Submission[]
 }
@@ -154,7 +152,7 @@ model PhotoAsset {
 // ─── Rewards & Unlocks ───────────────────────────────────────────────────────
 model UnlockableItem {
   id         String   @id @default(uuid())
-  type       String   // AVATAR | THEME | STICKER | TITLE
+  type       String
   slug       String   @unique
   label      String
   pointsCost Int
