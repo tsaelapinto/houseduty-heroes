@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../phd_statistical_analysis"
+		},
+		{
+			"path": "../../../.."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^pip show fpdf2 docx2pdf pywin32$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
+}

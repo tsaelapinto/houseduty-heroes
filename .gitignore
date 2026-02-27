@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.env.local
+uploads/
+*.log
+.DS_Store
+.vscode/
+coverage/
+# DO NOT gitignore prisma/migrations — needed for prisma migrate deploy
+*.db
+*.db-journal
+*.tsbuildinfo

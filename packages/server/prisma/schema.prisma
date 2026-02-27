@@ -1,0 +1,176 @@
+// This is your Prisma schema file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Household ───────────────────────────────────────────────────────────────
+model Household {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  dutyTemplates  DutyTemplate[]
+  cycles         Cycle[]
+}
+
+// ─── User (Parent | Kid) ─────────────────────────────────────────────────────
+model User {
+  id          String   @id @default(uuid())
+  householdId String
+  name        String
+  role        String   @default("KID")
+  avatarSlug  String   @default("default")
+  email       String?  @unique   // parents only
+  passwordHash String? // parents only
+  kidPin      String?            // kids only (bcrypt hashed)
+  morningReminderTime String?    // HH:MM
+  eveningReminderTime String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household     Household       @relation(fields: [householdId], references: [id])
+  dutyInstances DutyInstance[]
+  approvals     Approval[]
+  unlocks       UserUnlock[]
+
+  @@index([householdId])
+}
+
+
+// ─── Duty Template ───────────────────────────────────────────────────────────
+model DutyTemplate {
+  id            String   @id @default(uuid())
+  householdId   String
+  name          String
+  defaultPoints Int      @default(10)
+  recurrence    String   @default("daily")  // daily | weekdays | weekends | 3x | 2x | weekly
+  photoRequired Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  isPrebuilt    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household     Household      @relation(fields: [householdId], references: [id])
+  dutyInstances DutyInstance[]
+  allowedKids   DutyTemplateAllowedKid[]
+
+  @@index([householdId])
+}
+
+// many-to-many: which kids are allowed for a template
+model DutyTemplateAllowedKid {
+  templateId String
+  kidId      String
+
+  template DutyTemplate @relation(fields: [templateId], references: [id])
+
+  @@id([templateId, kidId])
+}
+
+// ─── Cycle ───────────────────────────────────────────────────────────────────
+model Cycle {
+  id          String      @id @default(uuid())
+  householdId String
+  startAt     DateTime
+  endAt       DateTime
+  status      String      @default("ACTIVE")
+  createdAt   DateTime    @default(now())
+
+  household     Household      @relation(fields: [householdId], references: [id])
+  dutyInstances DutyInstance[]
+
+  @@index([householdId])
+}
+
+// ─── Duty Instance (one duty, one day, one kid) ───────────────────────────────
+model DutyInstance {
+  id                  String          @id @default(uuid())
+  cycleId             String
+  templateId          String?
+  kidId               String
+  date                DateTime
+  nameOverride        String?
+  pointsOverride      Int?
+  photoRequiredOverride Boolean?
+  status              String          @default("ASSIGNED")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  cycle      Cycle        @relation(fields: [cycleId], references: [id])
+  template   DutyTemplate? @relation(fields: [templateId], references: [id])
+  kid        User         @relation(fields: [kidId], references: [id])
+  submission Submission?
+  approval   Approval?
+
+  @@index([cycleId])
+  @@index([kidId])
+  @@index([date])
+}
+
+
+// ─── Submission ──────────────────────────────────────────────────────────────
+model Submission {
+  id             String    @id @default(uuid())
+  dutyInstanceId String    @unique
+  submittedAt    DateTime  @default(now())
+  syncPending    Boolean   @default(false)
+  photoAssetId   String?
+
+  dutyInstance DutyInstance @relation(fields: [dutyInstanceId], references: [id])
+  photoAsset   PhotoAsset?  @relation(fields: [photoAssetId], references: [id])
+}
+
+// ─── Approval ────────────────────────────────────────────────────────────────
+model Approval {
+  id             String   @id @default(uuid())
+  dutyInstanceId String   @unique
+  parentId       String
+  approvedAt     DateTime @default(now())
+  pointsAwarded  Int
+
+  dutyInstance DutyInstance @relation(fields: [dutyInstanceId], references: [id])
+  parent       User         @relation(fields: [parentId], references: [id])
+}
+
+// ─── Photo Asset ─────────────────────────────────────────────────────────────
+model PhotoAsset {
+  id              String   @id @default(uuid())
+  storageProvider String   // local | s3 | supabase
+  storagePath     String
+  createdAt       DateTime @default(now())
+  deleteAt        DateTime // createdAt + 30 days
+
+  submissions Submission[]
+}
+
+// ─── Rewards & Unlocks ───────────────────────────────────────────────────────
+model UnlockableItem {
+  id         String   @id @default(uuid())
+  type       String   // AVATAR | THEME | STICKER | TITLE
+  slug       String   @unique
+  label      String
+  pointsCost Int
+  isDefault  Boolean  @default(false)
+
+  unlocks UserUnlock[]
+}
+
+model UserUnlock {
+  id         String   @id @default(uuid())
+  userId     String
+  itemId     String
+  unlockedAt DateTime @default(now())
+
+  user User           @relation(fields: [userId], references: [id])
+  item UnlockableItem @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+}
