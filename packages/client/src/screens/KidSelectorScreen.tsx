@@ -73,7 +73,7 @@ export default function KidSelectorScreen() {
         role: 'KID',
       });
       setAuth(data.user, data.token);
-      navigate('/');
+      navigate('/app');
     } catch {
       setError('Wrong PIN — try again!');
       setShake(true);

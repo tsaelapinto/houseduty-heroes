@@ -93,7 +93,7 @@ export default function RewardsShopScreen() {
       {/* Header */}
       <div className="px-5 pt-10 pb-6">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => navigate('/')}
+          <button onClick={() => navigate('/app')}
             className="w-10 h-10 rounded-xl flex items-center justify-center text-white/60 hover:text-white transition"
             style={{ background: 'rgba(255,255,255,0.1)' }}>
             ←
