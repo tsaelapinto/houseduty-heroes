@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface Kid {
   id: string;
@@ -41,6 +43,7 @@ export default function KidSelectorScreen() {
 
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     // Get householdId from stored user (parent or previously logged-in kid)
@@ -75,7 +78,7 @@ export default function KidSelectorScreen() {
       setAuth(data.user, data.token);
       navigate('/app');
     } catch {
-      setError('Wrong PIN — try again!');
+      setError(t('kidSelector.wrong_pin'));
       setShake(true);
       setPin('');
       setTimeout(() => setShake(false), 600);
@@ -98,7 +101,7 @@ export default function KidSelectorScreen() {
         style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
         <div className="text-white text-center animate-pulse">
           <div className="text-6xl mb-4">🦸</div>
-          <p className="text-xl font-bold">Loading Heroes…</p>
+          <p className="text-xl font-bold">{t('kidSelector.loading')}</p>
         </div>
       </div>
     );
@@ -109,10 +112,11 @@ export default function KidSelectorScreen() {
       style={{ background: 'linear-gradient(160deg, #0f0c29, #302b63, #24243e)' }}>
 
       {/* Header */}
-      <div className="pt-12 pb-6 px-6 text-center">
+      <div className="pt-12 pb-6 px-6 text-center relative">
+        <div className="absolute top-4 end-4"><LanguageToggle /></div>
         <div className="text-5xl mb-3">🏠</div>
-        <h1 className="text-3xl font-black text-white">Who's Hero-ing Today?</h1>
-        <p className="text-white/50 mt-1 text-sm">Tap your avatar to open Hero HQ</p>
+        <h1 className="text-3xl font-black text-white">{t('kidSelector.title')}</h1>
+        <p className="text-white/50 mt-1 text-sm">{t('kidSelector.subtitle')}</p>
       </div>
 
       {/* Kids grid */}
@@ -121,8 +125,8 @@ export default function KidSelectorScreen() {
           {kids.length === 0 ? (
             <div className="text-center mt-16 text-white/40">
               <div className="text-5xl mb-4">😕</div>
-              <p className="font-semibold">No heroes found.</p>
-              <p className="text-sm mt-1">Ask your parent to add you from the dashboard.</p>
+              <p className="font-semibold">{t('kidSelector.empty_title')}</p>
+              <p className="text-sm mt-1">{t('kidSelector.empty_sub')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
@@ -146,7 +150,7 @@ export default function KidSelectorScreen() {
             onClick={() => navigate('/login')}
             className="w-full mt-8 py-3 text-white/40 text-sm font-medium hover:text-white/70 transition"
           >
-            ← Parent login
+            {t('kidSelector.parent_link')}
           </button>
         </div>
       ) : (
@@ -156,7 +160,7 @@ export default function KidSelectorScreen() {
             onClick={() => { setSelectedKid(null); setPin(''); setError(''); }}
             className="mb-6 text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-1"
           >
-            ← Back
+            {t('back')}
           </button>
 
           {/* Avatar */}
@@ -164,7 +168,7 @@ export default function KidSelectorScreen() {
             {AVATAR_EMOJI[selectedKid.avatarSlug] ?? AVATAR_EMOJI.default}
           </div>
           <h2 className="text-white text-2xl font-black mb-1">{selectedKid.name}</h2>
-          <p className="text-white/50 text-sm mb-8">Enter your secret PIN</p>
+          <p className="text-white/50 text-sm mb-8">{t('kidSelector.enter_pin')}</p>
 
           {/* PIN dots */}
           <div className={`flex gap-4 mb-6 ${shake ? 'animate-bounce' : ''}`}>
@@ -204,7 +208,7 @@ export default function KidSelectorScreen() {
           {loginLoading && (
             <div className="mt-8 flex items-center gap-3 text-white/60">
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Checking…</span>
+              <span>{t('kidSelector.checking')}</span>
             </div>
           )}
         </div>

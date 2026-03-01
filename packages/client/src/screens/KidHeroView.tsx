@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface Duty {
   id: string;
@@ -29,6 +31,7 @@ const KidHeroView = () => {
   const [loading, setLoading] = useState(true);
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (user?.id) {
@@ -58,7 +61,7 @@ const KidHeroView = () => {
       style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)' }}>
       <div className="text-white text-center animate-pulse">
         <div className="text-6xl mb-4">🦸</div>
-        <p className="text-xl font-bold">Gearing Up…</p>
+        <p className="text-xl font-bold">{t('kid.loading')}</p>
       </div>
     </div>
   );
@@ -74,7 +77,7 @@ const KidHeroView = () => {
               {avatarEmoji}
             </div>
             <div>
-              <p className="text-white/60 text-sm font-medium">Welcome back</p>
+              <p className="text-white/60 text-sm font-medium">{t('kid.welcome')}</p>
               <h1 className="text-white text-2xl font-black">{user?.name} 🦸</h1>
             </div>
           </div>
@@ -84,19 +87,20 @@ const KidHeroView = () => {
               className="px-3 py-1.5 rounded-xl text-xs font-bold text-yellow-400 transition-all active:scale-95"
               style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)' }}
             >
-              ⭐ Rewards
+              {t('kid.rewards_btn')}
             </button>
             <button onClick={logout} data-testid="btn-logout"
               className="text-white/40 hover:text-white/80 text-sm font-medium transition-colors">
-              Exit
+              {t('exit')}
             </button>
+            <LanguageToggle />
           </div>
         </div>
 
         {/* Progress bar */}
         <div className="mt-6 p-5 rounded-2xl" style={{ background: 'rgba(255,255,255,0.08)' }}>
           <div className="flex justify-between items-center mb-3">
-            <span className="text-white/80 text-sm font-semibold">Today's Progress</span>
+            <span className="text-white/80 text-sm font-semibold">{t('kid.progress_label')}</span>
             <span className="text-yellow-400 font-black text-lg">{done}/{total}</span>
           </div>
           <div className="h-3 bg-white/10 rounded-full overflow-hidden">
@@ -106,20 +110,20 @@ const KidHeroView = () => {
             />
           </div>
           <p className="text-white/40 text-xs mt-2">
-            {pct === 100 ? '🎉 All missions complete!' : `${100 - pct}% to go — you got this!`}
+            {pct === 100 ? t('kid.all_done') : `${100 - pct}${t('kid.to_go')}`}
           </p>
         </div>
       </div>
 
       {/* Missions */}
       <div className="px-5 pb-10">
-        <h2 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-4">Today's Missions</h2>
+        <h2 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-4">{t('kid.missions_label')}</h2>
         <div className="space-y-3">
           {duties.length === 0 ? (
             <div className="rounded-3xl p-10 text-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
               <div className="text-5xl mb-3">🎉</div>
-              <p className="text-white text-xl font-black">All Done!</p>
-              <p className="text-white/50 mt-1">You're a legendary hero today.</p>
+              <p className="text-white text-xl font-black">{t('kid.no_duties')}</p>
+              <p className="text-white/50 mt-1">{t('kid.no_duties_sub')}</p>
             </div>
           ) : duties.map((duty, i) => {
             const isComplete = duty.status === 'SUBMITTED' || duty.status === 'APPROVED';
@@ -149,10 +153,10 @@ const KidHeroView = () => {
                     className="flex-shrink-0 px-5 py-2.5 rounded-xl font-black text-sm text-white transition-transform active:scale-95"
                     style={{ background: 'linear-gradient(135deg,#f093fb,#f5576c)' }}
                   >
-                    Done!
+                    {t('kid.btn_done')}
                   </button>
                 ) : (
-                  <span className="flex-shrink-0 text-emerald-400 text-sm font-bold">Sent ✓</span>
+                  <span className="flex-shrink-0 text-emerald-400 text-sm font-bold">{t('kid.status_submitted')}</span>
                 )}
               </div>
             );

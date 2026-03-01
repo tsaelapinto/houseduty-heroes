@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface DutyInstance { id: string; status: string; template?: { name: string; defaultPoints: number }; }
 interface Kid { id: string; name: string; avatarSlug: string; dutyInstances: DutyInstance[]; }
@@ -30,17 +32,16 @@ const getDutyEmoji = (name: string) => {
   return found ? found[1] : DUTY_EMOJI.default;
 };
 
-const RECURRENCE_LABELS: Record<string, string> = {
-  daily: 'Every day', weekdays: 'Mon–Fri', weekends: 'Sat–Sun',
-  '3x': 'Mon·Wed·Fri', '2x': 'Tue·Thu', weekly: 'Once / week',
-};
 const RECURRENCE_OPTIONS = ['daily', 'weekdays', 'weekends', '3x', '2x', 'weekly'];
 
-const RecurrenceBadge = ({ r }: { r: string }) => (
-  <span className="text-xs px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 font-medium whitespace-nowrap">
-    {RECURRENCE_LABELS[r] ?? r}
-  </span>
-);
+const RecurrenceBadge = ({ r }: { r: string }) => {
+  const { t } = useTranslation();
+  return (
+    <span className="text-xs px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 font-medium whitespace-nowrap">
+      {t(`parent.recurrence.${r}`, { defaultValue: r })}
+    </span>
+  );
+};
 
 const inputCls = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 font-medium";
 
@@ -62,6 +63,7 @@ const ParentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
+  const { t } = useTranslation();
 
   // Add Kid modal state
   const [showAddKid, setShowAddKid] = useState(false);
@@ -206,7 +208,7 @@ const ParentDashboard = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <div className="text-center">
         <div className="text-5xl mb-4 animate-bounce">🏠</div>
-        <p className="text-slate-500 font-semibold">Loading HQ…</p>
+        <p className="text-slate-500 font-semibold">{t('parent.loading')}</p>
       </div>
     </div>
   );
@@ -219,23 +221,24 @@ const ParentDashboard = () => {
           <div className="flex items-center gap-3">
             <span className="text-2xl">🏠</span>
             <div>
-              <h1 className="text-lg font-black text-slate-800 leading-tight">HouseDuty Heroes</h1>
-              <p className="text-xs text-slate-400">Parent console</p>
+              <h1 className="text-lg font-black text-slate-800 leading-tight">{t('appName')}</h1>
+              <p className="text-xs text-slate-400">{t('parent.console_label')}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-500">Hi, <strong>{user?.name}</strong></span>
+            <LanguageToggle />
             <button onClick={openDutyLibrary}
               className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
-              📋 Duty Library
+              📋 {t('parent.duties_tab')}
             </button>
             <button onClick={() => { setShowAddKid(true); setAddKidError(''); }}
               className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow hover:opacity-90 transition">
-              + Add Hero
+              {t('parent.add_hero')}
             </button>
             <button onClick={logout} data-testid="btn-logout"
               className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition">
-              Log out
+              {t('parent.logout')}
             </button>
           </div>
         </div>
@@ -245,9 +248,9 @@ const ParentDashboard = () => {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Heroes', value: kids.length, icon: '🦸', color: 'from-indigo-500 to-purple-600' },
-            { label: 'Awaiting Review', value: totalPending, icon: '⏳', color: 'from-amber-400 to-orange-500' },
-            { label: 'Total Duties', value: kids.reduce((s, k) => s + k.dutyInstances.length, 0), icon: '✅', color: 'from-emerald-400 to-teal-500' },
+            { label: t('parent.heroes_tab'), value: kids.length, icon: '🦸', color: 'from-indigo-500 to-purple-600' },
+            { label: t('parent.awaiting_review'), value: totalPending, icon: '⏳', color: 'from-amber-400 to-orange-500' },
+            { label: t('parent.total_duties'), value: kids.reduce((s, k) => s + k.dutyInstances.length, 0), icon: '✅', color: 'from-emerald-400 to-teal-500' },
           ].map(stat => (
             <div key={stat.label} className={`bg-gradient-to-br ${stat.color} rounded-2xl p-5 text-white card-shadow`}>
               <div className="text-3xl mb-2">{stat.icon}</div>
@@ -258,7 +261,7 @@ const ParentDashboard = () => {
         </div>
 
         {/* Heroes grid */}
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Your Heroes</h2>
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t('parent.heroes_tab')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {kids.map(kid => {
             const pending = kid.dutyInstances.filter(d => d.status === 'ASSIGNED').length;
@@ -273,23 +276,23 @@ const ParentDashboard = () => {
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-3xl flex-shrink-0">{avatar}</div>
                   <div>
                     <h3 className="text-lg font-black text-slate-800">{kid.name}</h3>
-                    <p className="text-sm text-slate-400">{total} duties today</p>
+                    <p className="text-sm text-slate-400">{total} {t('parent.duties_today')}</p>
                   </div>
                 </div>
 
                 {/* Status badges */}
                 <div className="flex gap-2 flex-wrap mb-4">
-                  {pending > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.ASSIGNED}`}>⏳ {pending} pending</span>}
-                  {submitted > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.SUBMITTED}`}>📬 {submitted} to review</span>}
-                  {approved > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.APPROVED}`}>✅ {approved} done</span>}
-                  {total === 0 && <span className="text-xs text-slate-400">No duties yet</span>}
+                  {pending > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.ASSIGNED}`}>⏳ {pending} {t('parent.status_pending_badge')}</span>}
+                  {submitted > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.SUBMITTED}`}>📬 {submitted} {t('parent.status_review_badge')}</span>}
+                  {approved > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.APPROVED}`}>✅ {approved} {t('parent.status_done_badge')}</span>}
+                  {total === 0 && <span className="text-xs text-slate-400">{t('parent.no_duties_yet')}</span>}
                 </div>
 
                 {/* Submitted duties to approve */}
                 {kid.dutyInstances.filter(d => d.status === 'SUBMITTED').map(d => (
                   <div key={d.id} className="flex items-center justify-between bg-blue-50 rounded-xl px-3 py-2 mb-2 text-sm">
                     <span>{d.template ? getDutyEmoji(d.template.name) : '📋'} <span className="font-semibold">{d.template?.name ?? 'Duty'}</span></span>
-                    <button onClick={() => handleApprove(d.id)} className="ml-2 px-3 py-1 rounded-lg bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition">Approve ✅</button>
+                    <button onClick={() => handleApprove(d.id)} className="ml-2 px-3 py-1 rounded-lg bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition">{t('parent.approve')} ✅</button>
                   </div>
                 ))}
 
@@ -300,7 +303,7 @@ const ParentDashboard = () => {
 
                 <button onClick={() => openAssign(kid)}
                   className="w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow">
-                  + Assign Duty
+                  + {t('parent.assign_duty')}
                 </button>
               </div>
             );
@@ -310,28 +313,28 @@ const ParentDashboard = () => {
           <div onClick={() => { setShowAddKid(true); setAddKidError(''); }}
             className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/40 cursor-pointer transition-all">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl mb-3">➕</div>
-            <p className="font-bold text-sm">Add New Hero</p>
-            <p className="text-xs mt-1">Register a kid account</p>
+            <p className="font-bold text-sm">{t('parent.modal_add_hero')}</p>
+            <p className="text-xs mt-1">{t('parent.register_kid')}</p>
           </div>
         </div>
       </div>
 
       {/* ── Add Kid Modal ───────────────────────────────────────────── */}
       {showAddKid && (
-        <Modal title="🦸 Add New Hero" onClose={() => setShowAddKid(false)}>
+        <Modal title={`🦸 ${t('parent.modal_add_hero')}`} onClose={() => setShowAddKid(false)}>
           <form onSubmit={handleAddKid} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Hero Name</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('parent.field_name')}</label>
               <input className={inputCls} value={kidName} onChange={e => setKidName(e.target.value)}
                 placeholder="E.g. Oren" required />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">PIN (4 digits)</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('parent.field_pin')}</label>
               <input className={inputCls} value={kidPin} onChange={e => setKidPin(e.target.value)}
                 placeholder="1234" maxLength={6} required />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pick Avatar</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t('parent.field_avatar')}</label>
               <div className="grid grid-cols-6 gap-2">
                 {AVATARS.map(a => (
                   <button type="button" key={a.slug} onClick={() => setKidAvatar(a.slug)}
@@ -344,7 +347,7 @@ const ParentDashboard = () => {
             {addKidError && <div className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">⚠️ {addKidError}</div>}
             <button type="submit" disabled={addKidLoading}
               className="w-full py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition disabled:opacity-60">
-              {addKidLoading ? 'Adding…' : '🦸 Add Hero'}
+              {addKidLoading ? t('parent.adding') : `🦸 ${t('parent.btn_add_hero')}`}
             </button>
           </form>
         </Modal>
@@ -352,31 +355,31 @@ const ParentDashboard = () => {
 
       {/* ── Assign Duty Modal ───────────────────────────────────────── */}
       {assignTarget && (
-        <Modal title={`📋 Assign to ${assignTarget.name}`} onClose={() => setAssignTarget(null)}>
+        <Modal title={`📋 ${t('parent.modal_assign')} ${assignTarget.name}`} onClose={() => setAssignTarget(null)}>
           <form onSubmit={handleAssign} className="space-y-4">
             {templates.length === 0 ? (
               <div className="text-center py-4">
-                <p className="text-slate-400 text-sm mb-3">No duty templates yet.</p>
+                <p className="text-slate-400 text-sm mb-3">{t('parent.no_templates')}</p>
                 <button type="button" onClick={() => { setAssignTarget(null); openDutyLibrary(); }}
                   className="text-sm px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100 transition">
-                  📋 Open Duty Library →
+                  {t('parent.open_library')}
                 </button>
               </div>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {templates.map(t => (
-                  <label key={t.id}
+                {templates.map(tmpl => (
+                  <label key={tmpl.id}
                     className={`flex items-center gap-3 p-3.5 rounded-xl cursor-pointer border-2 transition ${
-                      selectedTemplate === t.id ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                      selectedTemplate === tmpl.id ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-slate-300'
                     }`}>
-                    <input type="radio" name="template" className="hidden" value={t.id}
-                      checked={selectedTemplate === t.id} onChange={() => setSelectedTemplate(t.id)} />
-                    <span className="text-2xl">{getDutyEmoji(t.name)}</span>
+                    <input type="radio" name="template" className="hidden" value={tmpl.id}
+                      checked={selectedTemplate === tmpl.id} onChange={() => setSelectedTemplate(tmpl.id)} />
+                    <span className="text-2xl">{getDutyEmoji(tmpl.name)}</span>
                     <div className="flex-1">
-                      <div className="font-bold text-slate-800 text-sm">{t.name}</div>
-                      <div className="text-xs text-slate-400">{t.defaultPoints} pts</div>
+                      <div className="font-bold text-slate-800 text-sm">{tmpl.name}</div>
+                      <div className="text-xs text-slate-400">{tmpl.defaultPoints} pts</div>
                     </div>
-                    {selectedTemplate === t.id && <span className="text-indigo-500 font-bold">✓</span>}
+                    {selectedTemplate === tmpl.id && <span className="text-indigo-500 font-bold">✓</span>}
                   </label>
                 ))}
               </div>
@@ -384,57 +387,56 @@ const ParentDashboard = () => {
             {assignError && <div className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">⚠️ {assignError}</div>}
             <button type="submit" disabled={assignLoading || !selectedTemplate}
               className="w-full py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition disabled:opacity-50">
-              {assignLoading ? 'Assigning…' : '📋 Assign Duty'}
+              {assignLoading ? t('parent.assigning') : `📋 ${t('parent.btn_assign')}`}
             </button>
           </form>
         </Modal>
       )}
-      {/* ── Duty Library Modal ──────────────────────────────────────── */}
       {showDutyLibrary && (
-        <Modal title="📋 Duty Library" onClose={() => { setShowDutyLibrary(false); setEditingId(null); }}>
+        <Modal title={`📋 ${t('parent.modal_library')}`} onClose={() => { setShowDutyLibrary(false); setEditingId(null); }}>
           <div className="space-y-4">
             {/* Template list */}
             <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
               {libLoading ? (
-                <p className="text-slate-400 text-sm text-center py-4">Loading…</p>
+                <p className="text-slate-400 text-sm text-center py-4">{t('parent.lib_loading')}</p>
               ) : libTemplates.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-4">No duties yet — add your first one below.</p>
-              ) : libTemplates.map(t => editingId === t.id ? (
+                <p className="text-slate-400 text-sm text-center py-4">{t('parent.lib_empty')}</p>
+              ) : libTemplates.map(tmpl => editingId === tmpl.id ? (
                 // ─── Inline edit mode ─────────────────────────────────────────
-                <div key={t.id} className="p-3 rounded-xl bg-indigo-50 border-2 border-indigo-200 space-y-2">
-                  <input className={inputCls} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Duty name" />
+                <div key={tmpl.id} className="p-3 rounded-xl bg-indigo-50 border-2 border-indigo-200 space-y-2">
+                  <input className={inputCls} value={editName} onChange={e => setEditName(e.target.value)} placeholder={t('parent.field_new_duty')} />
                   <div className="flex gap-2">
                     <input className={inputCls} type="number" min={1} max={999} value={editPoints}
                       onChange={e => setEditPoints(e.target.value)}
-                      style={{ maxWidth: 80 }} placeholder="pts" />
+                      style={{ maxWidth: 80 }} placeholder={t('parent.pts_placeholder')} />
                     <select className={inputCls + ' flex-1'} value={editRecurrence} onChange={e => setEditRecurrence(e.target.value)}>
-                      {RECURRENCE_OPTIONS.map(r => <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>)}
+                      {RECURRENCE_OPTIONS.map(r => <option key={r} value={r}>{t(`parent.recurrence.${r}`)}</option>)}
                     </select>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={handleSaveDuty}
-                      className="flex-1 py-2 rounded-xl bg-indigo-500 text-white font-bold text-sm hover:bg-indigo-600 transition">Save</button>
+                      className="flex-1 py-2 rounded-xl bg-indigo-500 text-white font-bold text-sm hover:bg-indigo-600 transition">{t('save')}</button>
                     <button onClick={() => setEditingId(null)}
-                      className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 font-bold text-sm hover:bg-slate-200 transition">Cancel</button>
+                      className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 font-bold text-sm hover:bg-slate-200 transition">{t('cancel')}</button>
                   </div>
                 </div>
               ) : (
                 // ─── Read mode ─────────────────────────────────────────────────
-                <div key={t.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100 group">
-                  <span className="text-xl">{getDutyEmoji(t.name)}</span>
+                <div key={tmpl.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100 group">
+                  <span className="text-xl">{getDutyEmoji(tmpl.name)}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-slate-800 text-sm truncate">{t.name}</div>
+                    <div className="font-bold text-slate-800 text-sm truncate">{tmpl.name}</div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400">{t.defaultPoints} pts</span>
-                      <RecurrenceBadge r={t.recurrence ?? 'daily'} />
+                      <span className="text-xs text-slate-400">{tmpl.defaultPoints} pts</span>
+                      <RecurrenceBadge r={tmpl.recurrence ?? 'daily'} />
                     </div>
                   </div>
                   <button
-                    onClick={() => { setEditingId(t.id); setEditName(t.name); setEditPoints(String(t.defaultPoints)); setEditRecurrence(t.recurrence ?? 'daily'); }}
+                    onClick={() => { setEditingId(tmpl.id); setEditName(tmpl.name); setEditPoints(String(tmpl.defaultPoints)); setEditRecurrence(tmpl.recurrence ?? 'daily'); }}
                     className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-500 flex items-center justify-center text-xs transition">
                     ✏️
                   </button>
-                  <button onClick={() => handleDeleteDuty(t.id)}
+                  <button onClick={() => handleDeleteDuty(tmpl.id)}
                     className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center text-xs font-bold transition">
                     ✕
                   </button>
@@ -446,20 +448,20 @@ const ParentDashboard = () => {
 
             {/* Add new duty */}
             <form onSubmit={handleCreateDuty} className="space-y-3">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Add a Duty</p>
-              <input className={inputCls} placeholder="Duty name (e.g. Vacuum stairs)" value={newDutyName}
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('parent.add_duty_label')}</p>
+              <input className={inputCls} placeholder={t('parent.duty_placeholder')} value={newDutyName}
                 onChange={e => setNewDutyName(e.target.value)} required />
               <div className="flex gap-2 items-center">
-                <input className={inputCls} type="number" min={1} max={999} placeholder="Pts" value={newDutyPoints}
+                <input className={inputCls} type="number" min={1} max={999} placeholder={t('parent.pts_placeholder')} value={newDutyPoints}
                   onChange={e => setNewDutyPoints(e.target.value)} style={{ maxWidth: 80 }} />
                 <select className={inputCls + ' flex-1'} value={newDutyRecurrence} onChange={e => setNewDutyRecurrence(e.target.value)}>
-                  {RECURRENCE_OPTIONS.map(r => <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>)}
+                  {RECURRENCE_OPTIONS.map(r => <option key={r} value={r}>{t(`parent.recurrence.${r}`)}</option>)}
                 </select>
               </div>
               {newDutyError && <div className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">⚠️ {newDutyError}</div>}
               <button type="submit" disabled={!newDutyName.trim()}
                 className="w-full py-3 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition disabled:opacity-50">
-                ＋ Add Duty
+                ＋ {t('parent.btn_add_duty')}
               </button>
             </form>
           </div>

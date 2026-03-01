@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface UnlockableItem {
   id: string;
@@ -33,13 +35,6 @@ const TYPE_EMOJI: Record<string, string> = {
   TITLE: '🏆',
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  AVATAR: 'Avatar',
-  STICKER: 'Sticker',
-  THEME: 'Theme',
-  TITLE: 'Title',
-};
-
 export default function RewardsShopScreen() {
   const [data, setData] = useState<RewardsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +43,14 @@ export default function RewardsShopScreen() {
 
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const TYPE_LABEL: Record<string, string> = {
+    AVATAR: t('rewards.type_avatar'),
+    STICKER: t('rewards.type_sticker'),
+    THEME: t('rewards.type_theme'),
+    TITLE: t('rewards.type_title'),
+  };
 
   const fetchRewards = () => {
     if (!user?.id) return;
@@ -99,9 +102,10 @@ export default function RewardsShopScreen() {
             ←
           </button>
           <div>
-            <h1 className="text-white text-2xl font-black">Rewards Shop</h1>
+            <h1 className="text-white text-2xl font-black">{t('rewards.title')}</h1>
             <p className="text-white/50 text-sm">Spend your hard-earned stars</p>
           </div>
+          <div className="ms-auto"><LanguageToggle /></div>
         </div>
 
         {/* Points banner */}
@@ -110,13 +114,13 @@ export default function RewardsShopScreen() {
             style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,87,108,0.2))', border: '1px solid rgba(251,191,36,0.3)' }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-400/80 text-xs font-bold uppercase tracking-wider">Available Stars</p>
+                <p className="text-yellow-400/80 text-xs font-bold uppercase tracking-wider">{t('rewards.available')}</p>
                 <p className="text-yellow-400 text-4xl font-black mt-1">⭐ {data.availablePoints}</p>
               </div>
               <div className="text-right">
-                <p className="text-white/40 text-xs">Total earned</p>
+                <p className="text-white/40 text-xs">{t('rewards.total')}</p>
                 <p className="text-white/60 font-bold">{data.totalPoints} ⭐</p>
-                <p className="text-white/40 text-xs mt-1">Spent</p>
+                <p className="text-white/40 text-xs mt-1">{t('rewards.spent')}</p>
                 <p className="text-white/60 font-bold">{data.spentPoints} ⭐</p>
               </div>
             </div>
@@ -167,7 +171,7 @@ export default function RewardsShopScreen() {
                           {item.label}
                         </p>
                         <p className="text-yellow-400 text-sm font-semibold mt-0.5">
-                          {unlocked ? '✅ Unlocked!' : `⭐ ${item.pointsCost} stars`}
+                          {unlocked ? t('rewards.unlocked_badge') : `⭐ ${item.pointsCost} stars`}
                         </p>
                       </div>
                       {!unlocked && (
@@ -182,7 +186,7 @@ export default function RewardsShopScreen() {
                             color: 'white',
                           }}
                         >
-                          {unlocking === item.id ? '⏳' : canAfford ? 'Unlock' : `Need ${item.pointsCost}`}
+                          {unlocking === item.id ? t('rewards.btn_unlocking') : canAfford ? t('rewards.btn_unlock') : `Need ${item.pointsCost}`}
                         </button>
                       )}
                     </div>
