@@ -67,6 +67,10 @@ const en = {
     error_login: 'Login failed',
     error_signup: 'Signup failed',
     avatar_label: 'Choose Avatar',
+    placeholder_name_parent: 'E.g. Mum or Dad',
+    placeholder_email_you: 'you@example.com',
+    placeholder_password_min: 'min 6 characters',
+    demo_hint: 'Demo: mum@houseduty.app / parent123 · Kids: name + PIN 1234',
   },
 
   // Kid selector

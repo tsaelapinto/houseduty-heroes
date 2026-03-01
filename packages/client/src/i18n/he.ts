@@ -67,6 +67,10 @@ const he = {
     error_login: 'הכניסה נכשלה',
     error_signup: 'ההרשמה נכשלה',
     avatar_label: 'בחר אווטאר',
+    placeholder_name_parent: 'לדוגמה: אמא או אבא',
+    placeholder_email_you: 'you@example.com',
+    placeholder_password_min: 'לפחות 6 תווים',
+    demo_hint: 'הדגמה: mum@houseduty.app / parent123 · ילדים: שם + קוד 1234',
   },
 
   // Kid selector

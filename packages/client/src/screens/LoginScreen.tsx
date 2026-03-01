@@ -157,15 +157,15 @@ const LoginScreen = () => {
               <p className="text-white/60 text-sm mb-2">{t('login.signup_hint')}</p>
               <Field label={t('login.label_display_name')}>
                 <input data-testid="signup-name" type="text" className={inputCls} value={signupName}
-                  onChange={e => setSignupName(e.target.value)} placeholder="E.g. Mum or Dad" required />
+                  onChange={e => setSignupName(e.target.value)} placeholder={t('login.placeholder_name_parent')} required />
               </Field>
               <Field label={t('login.label_email')}>
                 <input data-testid="signup-email" type="email" className={inputCls} value={signupEmail}
-                  onChange={e => setSignupEmail(e.target.value)} placeholder="you@example.com" required />
+                  onChange={e => setSignupEmail(e.target.value)} placeholder={t('login.placeholder_email_you')} required />
               </Field>
               <Field label={t('login.label_password')}>
                 <input data-testid="signup-password" type="password" className={inputCls} value={signupPassword}
-                  onChange={e => setSignupPassword(e.target.value)} placeholder="min 6 characters" required minLength={6} />
+                  onChange={e => setSignupPassword(e.target.value)} placeholder={t('login.placeholder_password_min')} required minLength={6} />
               </Field>
               <Field label={t('login.label_household')}>
                 <input type="text" className={inputCls} value={householdName}
@@ -183,7 +183,7 @@ const LoginScreen = () => {
 
         {mode === 'login' && (
           <p className="text-center text-white/40 text-xs mt-5">
-            Demo: mum@houseduty.app / parent123 &bull; Kids: name + PIN 1234
+            {t('login.demo_hint')}
           </p>
         )}
       </div>
