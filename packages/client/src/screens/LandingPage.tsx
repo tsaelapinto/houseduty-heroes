@@ -43,7 +43,7 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-3">
           <LanguageToggle />
-          <button onClick={handleOpenApp} className="px-5 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-sm transition-all">
+          <button data-testid="nav-login-btn" onClick={handleOpenApp} className="px-5 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-sm transition-all">
             {user ? t('landing.nav_open') : t('landing.nav_login')}
           </button>
         </div>

@@ -2,8 +2,18 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Tsaela Login', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.locator('[data-testid="login-screen"]')).toBeVisible({ timeout: 10000 });
+    await page.goto('/');
+    const loginScreen = page.locator('[data-testid="login-screen"]');
+    // If root shows the landing page (production), click the nav login button
+    const isLoginScreen = await loginScreen.isVisible().catch(() => false);
+    if (!isLoginScreen) {
+      // Use testid if deployed, otherwise fall back to button text
+      const byTestId = page.locator('[data-testid="nav-login-btn"]');
+      const hasTestId = await byTestId.isVisible({ timeout: 2000 }).catch(() => false);
+      const navBtn = hasTestId ? byTestId : page.getByRole('button', { name: /Log In|כניסה/ });
+      await navBtn.click();
+    }
+    await expect(loginScreen).toBeVisible({ timeout: 10000 });
   });
 
   test('tsaela logs in with email and password', async ({ page }) => {
