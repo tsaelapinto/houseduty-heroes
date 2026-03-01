@@ -21,6 +21,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'https://harelitos.com',
   'https://www.harelitos.com',
+  'https://app.harelitos.com',
+  'https://houseduty-client.onrender.com',
   /\.vercel\.app$/,
   /\.railway\.app$/,
 ];
