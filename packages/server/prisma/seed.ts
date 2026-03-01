@@ -135,8 +135,29 @@ async function main() {
     },
   });
 
+  // ── Tsaela's household ────────────────────────────────────────────────────
+  const tsaelaHousehold = await prisma.household.upsert({
+    where: { id: 'tsaela-household-001' },
+    update: {},
+    create: { id: 'tsaela-household-001', name: "Tsaela's Household" },
+  });
+  const tsaelaHash = await bcrypt.hash('123456', 10);
+  await prisma.user.upsert({
+    where: { email: 'tsaela@gmail.com' },
+    update: { passwordHash: tsaelaHash, name: 'Tsaela' },
+    create: {
+      id: 'tsaela-parent-001',
+      householdId: tsaelaHousehold.id,
+      name: 'Tsaela',
+      role: 'PARENT',
+      email: 'tsaela@gmail.com',
+      passwordHash: tsaelaHash,
+    },
+  });
+
   console.log('✅ Seed complete!');
   console.log(`   Parent: mum@houseduty.app / parent123`);
+  console.log(`   Parent: tsaela@gmail.com / 123456`);
   console.log(`   Kids: Daniel / 1234, Maya / 1234`);
 }
 

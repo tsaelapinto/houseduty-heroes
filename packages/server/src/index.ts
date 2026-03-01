@@ -18,7 +18,8 @@ export const app = express();
 const PORT = process.env.PORT || 4000;
 
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
   'https://harelitos.com',
   'https://www.harelitos.com',
   'https://app.harelitos.com',
