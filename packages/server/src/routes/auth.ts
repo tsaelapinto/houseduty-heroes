@@ -114,4 +114,24 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// ─── Update own profile (name / password) ────────────────────────────────
+router.patch('/me', async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
+  try {
+    const { userId } = jwt.verify(auth.slice(7), JWT_SECRET) as { userId: string };
+    const { name, password } = req.body as { name?: string; password?: string };
+    const updates: Record<string, unknown> = {};
+    if (name) updates.name = name;
+    if (password) updates.passwordHash = await bcrypt.hash(String(password), 10);
+    if (Object.keys(updates).length === 0)
+      return res.status(400).json({ error: 'Nothing to update' });
+    const updated = await prisma.user.update({ where: { id: userId }, data: updates });
+    const { passwordHash, kidPin, ...safe } = updated;
+    return res.json({ user: safe });
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
 export default router;
