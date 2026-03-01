@@ -255,3 +255,46 @@ harelitops_standalone/
 ├── playwright.config.ts
 └── package.json               ← npm workspaces root
 ```
+
+---
+
+## 11. Testing Policy  Playwright Against Production
+
+### Rule: every new feature ships with a production E2E test
+
+| What | How |
+|---|---|
+| Config | `playwright.prod.config.ts`  `baseURL: https://app.harelitos.com` |
+| Run | `npm run test:prod` (or `npm run test:prod -- --grep "<suite>"`) |
+| Household isolation | Each test run self-provisions throwaway households via the register API using `Date.now()` emails. No shared test data files. |
+| Assertions | Use `data-testid` attributes wherever possible. Avoid asserting on translated strings. |
+| Files | One spec file per feature area in `tests/e2e/*.spec.ts`. |
+
+### Dedicated test-data pattern
+```typescript
+const ts = Date.now();
+const regResp = await request.post('https://api.harelitos.com/api/auth/register', {
+  data: { name: 'Test Parent', email: `test-${ts}@test.com`, password: 'testpass1' },
+});
+const { user } = await regResp.json();
+// scope all further data to user.householdId
+```
+
+### Pre-load localStorage before page load
+```typescript
+await page.addInitScript((hid) => {
+  localStorage.setItem('knownHouseholdId', hid);
+}, user.householdId);
+await page.goto('/kid-select');
+```
+
+### Key data-testid catalogue
+| Element | testid |
+|---|---|
+| Login screen root | `login-screen` |
+| Parent dashboard root | `parent-dashboard` |
+| Kid hero view root | `kid-hero-view` |
+| Assignment screen root | `assignment-screen` |
+| Logout button | `btn-logout` |
+| Invite partner button | `btn-invite-partner` |
+| Assignments nav | `btn-assign-screen` |
