@@ -20,6 +20,7 @@ model Household {
   users          User[]
   dutyTemplates  DutyTemplate[]
   cycles         Cycle[]
+  invites        HouseholdInvite[]
 }
 
 // ─── User (Parent | Kid) ─────────────────────────────────────────────────────
@@ -171,4 +172,17 @@ model UserUnlock {
   item UnlockableItem @relation(fields: [itemId], references: [id])
 
   @@unique([userId, itemId])
+}
+
+// ─── Household Invite ─────────────────────────────────────────────────────────
+model HouseholdInvite {
+  id          String    @id @default(uuid())
+  householdId String
+  token       String    @unique
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id])
 }

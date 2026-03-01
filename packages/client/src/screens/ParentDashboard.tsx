@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
@@ -64,6 +65,7 @@ const ParentDashboard = () => {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   // Add Kid modal state
   const [showAddKid, setShowAddKid] = useState(false);
@@ -79,6 +81,16 @@ const ParentDashboard = () => {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [assignError, setAssignError] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
+
+  // Invite partner modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteEmailName, setInviteEmailName] = useState('');
+  const [inviteEmailLoading, setInviteEmailLoading] = useState(false);
+  const [inviteEmailDone, setInviteEmailDone] = useState(false);
 
   // Duty Library modal state
   const [showDutyLibrary, setShowDutyLibrary] = useState(false);
@@ -195,6 +207,47 @@ const ParentDashboard = () => {
     finally { setAssignLoading(false); }
   };
 
+  const handleSendInviteEmail = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteEmailLoading(true);
+    setInviteEmailDone(false);
+    try {
+      const data = await apiClient.post('/invite', {
+        partnerEmail: inviteEmail.trim(),
+        partnerName: inviteEmailName.trim() || undefined,
+      });
+      setInviteUrl(data.url);
+      if (data.emailSent) setInviteEmailDone(true);
+      else alert('Email could not be sent — RESEND_API_KEY may not be configured on the server. Share the link manually.');
+    } catch (err: any) {
+      alert('Failed: ' + (err.message ?? 'unknown error'));
+    } finally {
+      setInviteEmailLoading(false);
+    }
+  };
+
+  const handleOpenInvite = async () => {
+    setShowInviteModal(true);
+    if (inviteUrl) return; // already generated
+    setInviteLoading(true);
+    try {
+      const data = await apiClient.post('/invite', {});
+      setInviteUrl(data.url);
+    } catch (err: any) {
+      console.error('Failed to generate invite', err);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyInvite = () => {
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2500);
+    });
+  };
+
   const handleApprove = async (dutyId: string) => {
     try {
       await apiClient.post(`/duties/${dutyId}/approve`, { parentId: user?.id });
@@ -235,6 +288,14 @@ const ParentDashboard = () => {
             <button onClick={() => { setShowAddKid(true); setAddKidError(''); }}
               className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow hover:opacity-90 transition">
               {t('parent.add_hero')}
+            </button>
+            <button onClick={() => navigate('/assign')} data-testid="btn-assign-screen"
+              className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
+              📈 Assignments
+            </button>
+            <button onClick={handleOpenInvite} data-testid="btn-invite-partner"
+              className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
+              {t('invite.btn')}
             </button>
             <button onClick={logout} data-testid="btn-logout"
               className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition">
@@ -318,6 +379,50 @@ const ParentDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Invite Partner Modal ──────────────────────────────────────── */}
+      {showInviteModal && (
+        <Modal title={`${t('invite.modal_title')}`} onClose={() => { setShowInviteModal(false); setInviteEmailDone(false); setInviteEmail(''); setInviteEmailName(''); }}>
+          <p className="text-sm text-slate-500 mb-5">{t('invite.modal_desc')}</p>
+          {inviteLoading ? (
+            <div className="text-center py-6 text-slate-400 font-medium">{t('invite.generating')}</div>
+          ) : inviteUrl ? (
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 break-all text-sm text-slate-700 font-mono leading-relaxed"
+                data-testid="invite-url-display">
+                {inviteUrl}
+              </div>
+              <button onClick={handleCopyInvite}
+                className="w-full py-3 rounded-xl font-bold text-white text-sm transition"
+                style={{ background: inviteCopied ? '#10b981' : 'linear-gradient(135deg,#667eea,#764ba2)' }}>
+                {inviteCopied ? t('invite.copied') : `📋 ${t('invite.copy')}`}
+              </button>
+              <p className="text-xs text-slate-400 text-center">👉 Share via WhatsApp, SMS, or send by email below</p>
+
+              <hr className="border-slate-100 my-1" />
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">📧 Send by Email (optional)</p>
+              <input type="email" className={inputCls} placeholder="partner@example.com"
+                value={inviteEmail} onChange={e => { setInviteEmail(e.target.value); setInviteEmailDone(false); }} />
+              <input type="text" className={inputCls} placeholder="Partner’s name (optional)"
+                value={inviteEmailName} onChange={e => setInviteEmailName(e.target.value)} />
+              {inviteEmailDone ? (
+                <div className="text-center text-emerald-600 font-bold text-sm py-2">
+                  ✅ Email sent to {inviteEmail}!
+                </div>
+              ) : (
+                <button onClick={handleSendInviteEmail}
+                  disabled={!inviteEmail.trim() || inviteEmailLoading}
+                  className="w-full py-3 rounded-xl font-bold text-white text-sm transition disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>
+                  {inviteEmailLoading ? 'Sending…' : '📧 Send Invite Email'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-red-500 text-sm">Failed to generate link. Try again.</p>
+          )}
+        </Modal>
+      )}
 
       {/* ── Add Kid Modal ───────────────────────────────────────────── */}
       {showAddKid && (

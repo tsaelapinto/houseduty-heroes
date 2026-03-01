@@ -143,6 +143,20 @@ const he = {
     },
   },
 
+  // Invite partner
+  invite: {
+    btn: '👥 הזמן שותף',
+    modal_title: 'הזמן את הבן/בת זוג שלך',
+    modal_desc: 'שתף את הקישור — תקף 7 ימים, שימוש חד פעמי',
+    copy: 'העתק קישור',
+    copied: '✅ הועתק!',
+    generating: 'יוצר קישור…',
+    join_title: 'הצטרף למשק הבית',
+    join_desc: 'הוזמנת להצטרף',
+    btn_join: '🏠 הצטרף למשק הבית',
+    joining: 'מצטרף…',
+  },
+
   // Kid hero view
   kid: {
     welcome: 'ברוך הבא',

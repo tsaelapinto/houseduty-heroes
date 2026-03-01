@@ -143,6 +143,20 @@ const en = {
     },
   },
 
+  // Invite partner
+  invite: {
+    btn: '👥 Invite Partner',
+    modal_title: 'Invite Your Partner',
+    modal_desc: 'Share this link — valid for 7 days, one use only',
+    copy: 'Copy Link',
+    copied: '✅ Copied!',
+    generating: 'Generating link…',
+    join_title: 'Join the Household',
+    join_desc: "You've been invited to join",
+    btn_join: '🏠 Join Household',
+    joining: 'Joining…',
+  },
+
   // Kid hero view
   kid: {
     welcome: 'Welcome back',

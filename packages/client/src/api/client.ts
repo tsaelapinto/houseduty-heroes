@@ -39,6 +39,13 @@ export const apiClient = {
       headers: getHeaders(),
     }).then(handleResponse),
 
+  deleteBody: (endpoint: string, data: unknown) =>
+    fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
   uploadPhoto: (file: File) => {
     const form = new FormData();
     form.append('photo', file);

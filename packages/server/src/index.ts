@@ -12,7 +12,9 @@ import householdRoutes from './routes/household';
 import cyclesRoutes from './routes/cycles';
 import rewardsRoutes from './routes/rewards';
 import uploadsRoutes from './routes/uploads';
+import inviteRoutes from './routes/invite';
 import { errorHandler } from './middleware/errorHandler';
+import { runMigrations } from './db/runMigrations';
 
 export const app = express();
 const PORT = process.env.PORT || 4000;
@@ -41,6 +43,7 @@ app.use('/api/household', householdRoutes);
 app.use('/api/cycles', cyclesRoutes);
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/invite', inviteRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -50,7 +53,9 @@ app.get('/health', (req, res) => {
 app.use(errorHandler);
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`HouseDuty Heroes Server running on http://localhost:${PORT}`);
+  runMigrations().then(() => {
+    app.listen(PORT, () => {
+      console.log(`HouseDuty Heroes Server running on http://localhost:${PORT}`);
+    });
   });
 }

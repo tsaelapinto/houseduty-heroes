@@ -217,4 +217,121 @@ router.post('/start', async (req, res) => {
   }
 });
 
+// ─── GET /cycles/assignments?householdId=X ─────────────────────────────────
+// Returns unique template+kid pairs for the active cycle (the assignment matrix).
+router.get('/assignments', async (req, res) => {
+  try {
+    const { householdId } = req.query as { householdId: string };
+    if (!householdId) return res.status(400).json({ error: 'householdId required' });
+
+    const cycle = await prisma.cycle.findFirst({
+      where: { householdId, status: 'ACTIVE' },
+      orderBy: { startAt: 'desc' },
+    });
+    if (!cycle) return res.json({ cycleId: null, startAt: null, endAt: null, assignments: [] });
+
+    const rows = await prisma.dutyInstance.findMany({
+      where: { cycleId: cycle.id },
+      select: { templateId: true, kidId: true },
+      orderBy: { date: 'asc' },
+    });
+
+    // Deduplicate to unique (templateId, kidId) pairs
+    const seen = new Set<string>();
+    const assignments: { templateId: string; kidId: string }[] = [];
+    for (const r of rows) {
+      if (!r.templateId) continue;
+      const key = `${r.templateId}:${r.kidId}`;
+      if (!seen.has(key)) { seen.add(key); assignments.push({ templateId: r.templateId, kidId: r.kidId }); }
+    }
+
+    return res.json({ cycleId: cycle.id, startAt: cycle.startAt, endAt: cycle.endAt, assignments });
+  } catch (err) {
+    console.error('GET /cycles/assignments error:', err);
+    return res.status(500).json({ error: 'Failed to fetch assignments' });
+  }
+});
+
+// ─── POST /cycles/assign-template ─────────────────────────────────────────
+// Assigns a duty template to a kid for all remaining days of the active cycle.
+// Auto-creates a cycle if none exists.
+router.post('/assign-template', async (req, res) => {
+  try {
+    const { householdId, templateId, kidId } = req.body;
+    if (!householdId || !templateId || !kidId)
+      return res.status(400).json({ error: 'householdId, templateId, kidId required' });
+
+    let cycle = await prisma.cycle.findFirst({
+      where: { householdId, status: 'ACTIVE' },
+      orderBy: { startAt: 'desc' },
+    });
+    if (!cycle) {
+      const start = startOfDay(new Date());
+      cycle = await prisma.cycle.create({
+        data: { householdId, startAt: start, endAt: addDays(start, 14), status: 'ACTIVE' },
+      });
+    }
+
+    const template = await prisma.dutyTemplate.findUnique({ where: { id: templateId } });
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+
+    const cycleStart = new Date(cycle.startAt);
+    const today = startOfDay(new Date());
+    const totalDays = Math.ceil((new Date(cycle.endAt).getTime() - cycleStart.getTime()) / 86_400_000);
+    const startOffset = Math.max(0, Math.ceil((today.getTime() - cycleStart.getTime()) / 86_400_000));
+
+    const allDays = recurrenceDays(template.recurrence ?? 'daily', cycleStart, totalDays);
+    const remainingDays = allDays.filter(d => d >= startOffset);
+
+    // Remove any existing ASSIGNED instances so we don't double-up
+    await prisma.dutyInstance.deleteMany({
+      where: { cycleId: cycle.id, templateId, kidId, status: 'ASSIGNED' },
+    });
+
+    if (remainingDays.length > 0) {
+      await prisma.dutyInstance.createMany({
+        data: remainingDays.map(day => ({
+          cycleId: cycle!.id, templateId, kidId,
+          date: addDays(cycleStart, day),
+          status: 'ASSIGNED',
+          pointsOverride: template.defaultPoints,
+        })),
+      });
+    }
+
+    return res.json({ ok: true, cycleId: cycle.id, created: remainingDays.length });
+  } catch (err) {
+    console.error('POST /cycles/assign-template error:', err);
+    return res.status(500).json({ error: 'Failed to assign template' });
+  }
+});
+
+// ─── DELETE /cycles/unassign-template ─────────────────────────────────────
+// Removes all future ASSIGNED instances for a template+kid in the active cycle.
+router.delete('/unassign-template', async (req, res) => {
+  try {
+    const { householdId, templateId, kidId } = req.body;
+    if (!householdId || !templateId || !kidId)
+      return res.status(400).json({ error: 'householdId, templateId, kidId required' });
+
+    const cycle = await prisma.cycle.findFirst({
+      where: { householdId, status: 'ACTIVE' },
+      orderBy: { startAt: 'desc' },
+    });
+    if (!cycle) return res.json({ ok: true, deleted: 0 });
+
+    const { count } = await prisma.dutyInstance.deleteMany({
+      where: {
+        cycleId: cycle.id, templateId, kidId, status: 'ASSIGNED',
+        date: { gte: startOfDay(new Date()) },
+      },
+    });
+
+    return res.json({ ok: true, deleted: count });
+  } catch (err) {
+    console.error('DELETE /cycles/unassign-template error:', err);
+    return res.status(500).json({ error: 'Failed to unassign template' });
+  }
+});
+
 export default router;

@@ -6,6 +6,8 @@ import KidHeroView from './screens/KidHeroView';
 import KidSelectorScreen from './screens/KidSelectorScreen';
 import RewardsShopScreen from './screens/RewardsShopScreen';
 import LandingPage from './screens/LandingPage';
+import InviteJoinScreen from './screens/InviteJoinScreen';
+import AssignmentScreen from './screens/AssignmentScreen';
 
 function App() {
   const { user } = useAuthStore();
@@ -49,6 +51,15 @@ function App() {
           <Route
             path="/rewards"
             element={user?.role === 'KID' ? <RewardsShopScreen /> : <Navigate to="/app" />}
+          />
+
+          {/* Invite join screen — always public */}
+          <Route path="/join" element={<InviteJoinScreen />} />
+
+          {/* Parent assignment screen */}
+          <Route
+            path="/assign"
+            element={user?.role === 'PARENT' ? <AssignmentScreen /> : <Navigate to="/login" />}
           />
 
           <Route path="*" element={<Navigate to="/" />} />

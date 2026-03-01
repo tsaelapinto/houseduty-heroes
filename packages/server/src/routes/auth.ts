@@ -134,4 +134,36 @@ router.patch('/me', async (req, res) => {
   }
 });
 
+// ─── Join via invite link ────────────────────────────────────────────────────
+router.post('/join', async (req, res) => {
+  try {
+    const { name, email, password, inviteToken } = req.body;
+    if (!name || !email || !password || !inviteToken)
+      return res.status(400).json({ error: 'name, email, password and inviteToken are required' });
+
+    const invite = await (prisma as any).householdInvite.findUnique({ where: { token: String(inviteToken) } });
+    if (!invite) return res.status(404).json({ error: 'Invalid invite link' });
+    if (invite.expiresAt < new Date()) return res.status(410).json({ error: 'This invite has expired' });
+    if (invite.usedAt) return res.status(409).json({ error: 'This invite has already been used' });
+
+    const existing = await prisma.user.findUnique({ where: { email: String(email) } });
+    if (existing) return res.status(409).json({ error: 'Email already in use' });
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    const user = await prisma.user.create({
+      data: { householdId: invite.householdId, name: String(name), role: 'PARENT', email: String(email), passwordHash },
+    });
+    await (prisma as any).householdInvite.update({
+      where: { id: invite.id },
+      data: { usedAt: new Date() },
+    });
+    const { passwordHash: _, kidPin: __, ...safe } = user;
+    return res.status(201).json({ user: safe, token: signToken(user.id) });
+  } catch (err) {
+    console.error('Join error:', err);
+    return res.status(500).json({ error: 'Server error during join' });
+  }
+});
+
 export default router;
+
