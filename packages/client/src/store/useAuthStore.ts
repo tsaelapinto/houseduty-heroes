@@ -22,6 +22,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuth: (user, token) => {
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('token', token);
+    // Persist household so the kid selector works even after logout
+    if (user.householdId) localStorage.setItem('knownHouseholdId', user.householdId);
     set({ user, token });
   },
   logout: () => {

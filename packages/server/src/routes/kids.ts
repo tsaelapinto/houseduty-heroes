@@ -8,9 +8,10 @@ router.get('/', async (req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const { householdId } = req.query as { householdId?: string };
+  if (!householdId) return res.status(400).json({ error: 'householdId is required' });
 
   const kids = await prisma.user.findMany({
-    where: { role: 'KID', ...(householdId ? { householdId } : {}) },
+    where: { role: 'KID', householdId },
     include: {
       dutyInstances: {
         where: { date: { gte: today, lt: tomorrow } },

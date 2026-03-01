@@ -27,10 +27,20 @@ router.post('/login', async (req, res) => {
       const { passwordHash, kidPin, ...safe } = user;
       return res.json({ user: safe, token: signToken(user.id) });
     } else {
-      // Kid login: find by name, then check PIN
-      const candidates = await prisma.user.findMany({
-        where: { name: { equals: String(email) }, role: 'KID' },
-      });
+      // Kid login: prefer direct ID lookup (secure); fallback to name+householdId
+      const { kidId, householdId } = req.body;
+      let candidates: typeof await prisma.user.findMany();
+      if (kidId) {
+        // Caller already selected a specific kid — look up by ID only
+        const kid = await prisma.user.findFirst({ where: { id: String(kidId), role: 'KID' } });
+        candidates = kid ? [kid] : [];
+      } else {
+        // Legacy / fallback: name must be scoped to a household
+        if (!householdId) return res.status(400).json({ error: 'householdId required for kid login' });
+        candidates = await prisma.user.findMany({
+          where: { name: { equals: String(email) }, role: 'KID', householdId: String(householdId) },
+        });
+      }
       for (const kid of candidates) {
         if (kid.kidPin && await bcrypt.compare(String(pin), kid.kidPin)) {
           const { passwordHash, kidPin: kp, ...safe } = kid;

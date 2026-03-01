@@ -280,6 +280,14 @@ const ParentDashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-500">Hi, <strong>{user?.name}</strong></span>
+            {/* Family code — share this with kids so they can log in on a new device */}
+            <button
+              title={`Family code: ${user?.householdId}`}
+              onClick={() => { navigator.clipboard.writeText(user?.householdId ?? ''); }}
+              className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 font-mono transition"
+            >
+              🔑 {user?.householdId?.slice(0, 8)}…
+            </button>
             <LanguageToggle />
             <button onClick={openDutyLibrary}
               className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">

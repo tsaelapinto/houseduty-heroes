@@ -32,9 +32,20 @@ const AVATAR_BG: Record<string, string> = {
   default: 'from-indigo-400 to-purple-600',
 };
 
+/** Read the persisted household ID — survives logout */
+function getStoredHouseholdId(): string | null {
+  const explicit = localStorage.getItem('knownHouseholdId');
+  if (explicit) return explicit;
+  const user = localStorage.getItem('user');
+  return user ? (JSON.parse(user)?.householdId ?? null) : null;
+}
+
 export default function KidSelectorScreen() {
+  const [householdId, setHouseholdId] = useState<string | null>(getStoredHouseholdId);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeError, setCodeError] = useState('');
   const [kids, setKids] = useState<Kid[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedKid, setSelectedKid] = useState<Kid | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -46,16 +57,27 @@ export default function KidSelectorScreen() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    // Get householdId from stored user (parent or previously logged-in kid)
-    const stored = localStorage.getItem('user');
-    const householdId = stored ? JSON.parse(stored)?.householdId : null;
-    const query = householdId ? `?householdId=${householdId}` : '';
-
-    apiClient.get(`/kids${query}`)
+    if (!householdId) return;
+    setLoading(true);
+    apiClient.get(`/kids?householdId=${householdId}`)
       .then((data) => setKids(data))
       .catch(() => setKids([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [householdId]);
+
+  const handleEnterCode = async () => {
+    const code = codeInput.trim();
+    if (!code) return;
+    setCodeError('');
+    try {
+      const data = await apiClient.get(`/kids?householdId=${encodeURIComponent(code)}`);
+      localStorage.setItem('knownHouseholdId', code);
+      setHouseholdId(code);
+      setKids(data);
+    } catch {
+      setCodeError('Family code not found. Ask a parent for the code.');
+    }
+  };
 
   const handlePinDigit = (d: string) => {
     if (pin.length >= 6) return;
@@ -71,7 +93,7 @@ export default function KidSelectorScreen() {
     setError('');
     try {
       const data = await apiClient.post('/auth/login', {
-        email: selectedKid.name,
+        kidId: selectedKid.id,   // secure: look up by ID, not name
         pin,
         role: 'KID',
       });
@@ -94,6 +116,36 @@ export default function KidSelectorScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
+
+  // ── No household known yet → ask for family code ──────────────────────
+  if (!householdId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-8"
+        style={{ background: 'linear-gradient(160deg, #0f0c29, #302b63, #24243e)' }}>
+        <div className="text-6xl mb-4">🏠</div>
+        <h1 className="text-2xl font-black text-white mb-2">Enter Family Code</h1>
+        <p className="text-white/50 text-sm text-center mb-8">Ask a parent for your family's code to get started</p>
+        <input
+          type="text"
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleEnterCode()}
+          placeholder="Paste or type family code…"
+          className="w-full max-w-sm px-4 py-3 rounded-xl bg-white/20 border border-white/30 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 mb-3 text-center font-mono text-sm"
+        />
+        {codeError && <p className="text-red-400 text-sm mb-3">{codeError}</p>}
+        <button
+          onClick={handleEnterCode}
+          className="w-full max-w-sm py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold transition mb-4"
+        >
+          Let's go
+        </button>
+        <button onClick={() => navigate('/login')} className="text-white/40 text-sm hover:text-white/70 transition">
+          Parent login
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
