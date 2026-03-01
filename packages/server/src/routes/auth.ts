@@ -29,7 +29,7 @@ router.post('/login', async (req, res) => {
     } else {
       // Kid login: prefer direct ID lookup (secure); fallback to name+householdId
       const { kidId, householdId } = req.body;
-      let candidates: typeof await prisma.user.findMany();
+      let candidates: any[] = [];
       if (kidId) {
         // Caller already selected a specific kid — look up by ID only
         const kid = await prisma.user.findFirst({ where: { id: String(kidId), role: 'KID' } });
