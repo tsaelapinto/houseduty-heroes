@@ -13,8 +13,6 @@ router.get('/', async (req, res) => {
       id: true,
       name: true,
       createdAt: true,
-      cycleFrequency: true,
-      timezone: true,
       users: {
         select: {
           id: true,
