@@ -288,6 +288,7 @@ const ParentDashboard = () => {
       await apiClient.patch(`/kids/${reminderTarget.id}/reminders`, {
         morningReminderTime: morningTime,
         eveningReminderTime: eveningTime,
+        householdId: user?.householdId,
       });
       setReminderTarget(null);
       refreshKids();

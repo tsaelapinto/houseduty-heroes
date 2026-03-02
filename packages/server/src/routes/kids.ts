@@ -40,7 +40,13 @@ router.get('/:id', async (req, res) => {
 
   const kid = await prisma.user.findUnique({
     where: { id: req.params.id },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      avatarSlug: true,
+      householdId: true,
+      morningReminderTime: true,
+      eveningReminderTime: true,
       dutyInstances: {
         where: { date: { gte: today, lt: tomorrow } },
         include: { template: true },
@@ -64,13 +70,17 @@ router.patch('/:id/pin', async (req, res) => {
 });
 
 router.patch('/:id/reminders', async (req, res) => {
-  const { morningReminderTime, eveningReminderTime } = req.body;
+  const { morningReminderTime, eveningReminderTime, householdId } = req.body;
+  // Safety: ensure the kid belongs to the requesting household
+  const existing = await prisma.user.findFirst({ where: { id: req.params.id, role: 'KID', householdId: String(householdId) } });
+  if (!existing) return res.status(404).json({ error: 'Hero not found' });
   const kid = await prisma.user.update({
     where: { id: req.params.id },
     data: {
       morningReminderTime: morningReminderTime || null,
       eveningReminderTime: eveningReminderTime || null,
     },
+    select: { id: true, name: true, morningReminderTime: true, eveningReminderTime: true },
   });
   res.json(kid);
 });
