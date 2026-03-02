@@ -52,5 +52,5 @@ ENV NODE_ENV=production
 WORKDIR /app/packages/server
 EXPOSE 4000
 
-# Migrate then start
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Migrate (auto-resolve any previously-failed SQLite migration) then start
+CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20260302082621_sync_schema 2>&1 || true && npx prisma migrate deploy && node dist/index.js"]

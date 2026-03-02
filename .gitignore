@@ -4,6 +4,7 @@ build/
 .env
 .env.local
 *.env.local
+.env.deploy
 uploads/
 *.log
 .DS_Store
