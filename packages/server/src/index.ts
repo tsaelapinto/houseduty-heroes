@@ -15,9 +15,13 @@ import uploadsRoutes from './routes/uploads';
 import inviteRoutes from './routes/invite';
 import { errorHandler } from './middleware/errorHandler';
 import { runMigrations } from './db/runMigrations';
+import { initReminders } from './services/reminderService';
 
 export const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Initialize Scheduled Tasks
+initReminders();
 
 const ALLOWED_ORIGINS = [
   /^http:\/\/localhost(:\d+)?$/,

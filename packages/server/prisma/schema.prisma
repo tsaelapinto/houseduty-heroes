@@ -16,6 +16,10 @@ model Household {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Cycle Configuration
+  cycleFrequency String   @default("weekly") // weekly | biweekly | monthly
+  timezone       String   @default("Asia/Jerusalem")
+
   users          User[]
   dutyTemplates  DutyTemplate[]
   cycles         Cycle[]
@@ -51,8 +55,9 @@ model DutyTemplate {
   id            String   @id @default(uuid())
   householdId   String
   name          String
+  emoji         String?
   defaultPoints Int      @default(10)
-  recurrence    String   @default("daily")  // daily | weekdays | weekends | 3x | 2x | weekly
+  recurrence    String   @default("daily")  // daily | weekdays | weekends | 3x | 2x | weekly | once_per_cycle
   photoRequired Boolean  @default(false)
   isActive      Boolean  @default(true)
   isPrebuilt    Boolean  @default(false)

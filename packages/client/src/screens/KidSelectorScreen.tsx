@@ -57,11 +57,26 @@ export default function KidSelectorScreen() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    if (!householdId) return;
+    if (!householdId) {
+      setKids([]);
+      return;
+    }
     setLoading(true);
-    apiClient.get(`/kids?householdId=${householdId}`)
-      .then((data) => setKids(data))
-      .catch(() => setKids([]))
+    apiClient.get(`/kids?householdId=${encodeURIComponent(householdId)}`)
+      .then((data) => {
+        if (!data || data.length === 0) {
+           // If a stored code returns no kids (maybe deleted?), reset it
+           setHouseholdId(null);
+           localStorage.removeItem('knownHouseholdId');
+        } else {
+           setKids(data);
+        }
+      })
+      .catch(() => {
+        setKids([]);
+        setHouseholdId(null);
+        localStorage.removeItem('knownHouseholdId');
+      })
       .finally(() => setLoading(false));
   }, [householdId]);
 
@@ -71,11 +86,19 @@ export default function KidSelectorScreen() {
     setCodeError('');
     try {
       const data = await apiClient.get(`/kids?householdId=${encodeURIComponent(code)}`);
+      if (!data || data.length === 0) {
+        setCodeError('Family code is valid but no Heroes (kids) found. Ask a parent.');
+        return;
+      }
       localStorage.setItem('knownHouseholdId', code);
       setHouseholdId(code);
       setKids(data);
-    } catch {
-      setCodeError('Family code not found. Ask a parent for the code.');
+    } catch (err: any) {
+      if (err?.status === 404) {
+        setCodeError('Invalid Family Code. Please check the code in the Parent Dashboard.');
+      } else {
+        setCodeError('Could not verify code. Please try again.');
+      }
     }
   };
 

@@ -12,9 +12,13 @@ const signToken = (userId: string) =>
 // ─── Parent / Kid Login ────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
-    const { email, pin, role } = req.body;
-    if (!email || !pin || !role) {
-      return res.status(400).json({ error: 'email, pin and role are required' });
+    const { email, pin, role, kidId } = req.body;
+    if (!pin || !role) {
+      return res.status(400).json({ error: 'pin and role are required' });
+    }
+    // Parent login requires email; kid login by ID requires kidId
+    if (role === 'PARENT' && !email) {
+      return res.status(400).json({ error: 'email is required for parent login' });
     }
 
     if (role === 'PARENT') {
@@ -28,7 +32,7 @@ router.post('/login', async (req, res) => {
       return res.json({ user: safe, token: signToken(user.id) });
     } else {
       // Kid login: prefer direct ID lookup (secure); fallback to name+householdId
-      const { kidId, householdId } = req.body;
+      const { householdId } = req.body;
       let candidates: any[] = [];
       if (kidId) {
         // Caller already selected a specific kid — look up by ID only

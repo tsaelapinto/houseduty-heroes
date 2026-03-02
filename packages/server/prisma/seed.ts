@@ -155,10 +155,25 @@ async function main() {
     },
   });
 
+  // ── Oren (אורן) ────────────────────────────────────────────────────────────
+  const orenPinHash = await bcrypt.hash('1234', 10);
+  await prisma.user.upsert({
+    where: { id: 'tsaela-kid-oren' },
+    update: { kidPin: orenPinHash, name: 'אורן' },
+    create: {
+      id: 'tsaela-kid-oren',
+      householdId: tsaelaHousehold.id,
+      name: 'אורן',
+      role: 'KID',
+      kidPin: orenPinHash,
+      avatarSlug: 'robo-cat',
+    },
+  });
+
   console.log('✅ Seed complete!');
   console.log(`   Parent: mum@houseduty.app / parent123`);
   console.log(`   Parent: tsaela@gmail.com / 123456`);
-  console.log(`   Kids: Daniel / 1234, Maya / 1234`);
+  console.log(`   Kids: Daniel / 1234, Maya / 1234, אורן / 1234`);
 }
 
 main()
