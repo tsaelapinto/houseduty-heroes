@@ -86,6 +86,13 @@ const ParentDashboard = () => {
   const [codeCopied, setCodeCopied] = useState(false);
   const [showFullCode, setShowFullCode] = useState(false);
 
+  // PIN reset modal state
+  const [pinResetTarget, setPinResetTarget] = useState<any>(null);
+  const [pinResetValue, setPinResetValue] = useState('');
+  const [pinResetConfirm, setPinResetConfirm] = useState('');
+  const [pinResetLoading, setPinResetLoading] = useState(false);
+  const [pinResetError, setPinResetError] = useState('');
+
   // Invite partner modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
@@ -248,6 +255,28 @@ const ParentDashboard = () => {
       console.error('Failed to generate invite', err);
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleResetPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinResetTarget) return;
+    if (pinResetValue.length < 4) { setPinResetError('PIN must be at least 4 digits'); return; }
+    if (pinResetValue !== pinResetConfirm) { setPinResetError('PINs do not match'); return; }
+    setPinResetLoading(true);
+    setPinResetError('');
+    try {
+      await apiClient.patch(`/kids/${pinResetTarget.id}/pin`, {
+        newPin: pinResetValue,
+        householdId: user?.householdId,
+      });
+      setPinResetTarget(null);
+      setPinResetValue('');
+      setPinResetConfirm('');
+    } catch (err: any) {
+      setPinResetError(err.message || 'Failed to reset PIN');
+    } finally {
+      setPinResetLoading(false);
     }
   };
 
@@ -430,6 +459,13 @@ const ParentDashboard = () => {
                     title="Reminders"
                   >
                     🔔
+                  </button>
+                  <button
+                    onClick={() => { setPinResetTarget(kid); setPinResetValue(''); setPinResetConfirm(''); setPinResetError(''); }}
+                    className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-500 transition"
+                    title="Reset PIN"
+                  >
+                    🔐
                   </button>
                 </div>
               </div>
@@ -636,6 +672,45 @@ const ParentDashboard = () => {
               </button>
             </form>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Reset PIN Modal ────────────────────────────────────────── */}
+      {pinResetTarget && (
+        <Modal title={`🔐 Reset PIN for ${pinResetTarget.name}`} onClose={() => setPinResetTarget(null)}>
+          <form onSubmit={handleResetPin} className="space-y-5">
+            <p className="text-sm text-slate-500">Set a new 4-digit PIN for <strong>{pinResetTarget.name}</strong>. They'll use this to log in.</p>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">New PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                className={inputCls}
+                placeholder="e.g. 1234"
+                value={pinResetValue}
+                onChange={e => setPinResetValue(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Confirm PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                className={inputCls}
+                placeholder="Repeat PIN"
+                value={pinResetConfirm}
+                onChange={e => setPinResetConfirm(e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+            {pinResetError && <p className="text-red-500 text-sm">{pinResetError}</p>}
+            <button type="submit" disabled={pinResetLoading}
+              className="w-full py-4 rounded-2xl font-black text-white text-base bg-gradient-to-r from-red-500 to-pink-500 hover:opacity-90 transition shadow-lg disabled:opacity-50">
+              {pinResetLoading ? 'Saving...' : '🔐 Save New PIN'}
+            </button>
+          </form>
         </Modal>
       )}
 

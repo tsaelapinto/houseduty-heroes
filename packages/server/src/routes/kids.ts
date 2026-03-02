@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import prisma from '../db/client';
 
 const router = Router();
@@ -48,6 +49,18 @@ router.get('/:id', async (req, res) => {
   });
   if (!kid) return res.status(404).json({ error: 'Kid not found' });
   res.json(kid);
+});
+
+// Reset a kid's PIN — callable by parent (scoped by householdId check)
+router.patch('/:id/pin', async (req, res) => {
+  const { newPin, householdId } = req.body;
+  if (!newPin || String(newPin).length < 4) return res.status(400).json({ error: 'PIN must be at least 4 digits' });
+  // Safety: make sure the kid belongs to the requesting household
+  const kid = await prisma.user.findFirst({ where: { id: req.params.id, role: 'KID', householdId: String(householdId) } });
+  if (!kid) return res.status(404).json({ error: 'Hero not found' });
+  const kidPin = await bcrypt.hash(String(newPin), 10);
+  await prisma.user.update({ where: { id: req.params.id }, data: { kidPin } });
+  res.json({ ok: true });
 });
 
 router.patch('/:id/reminders', async (req, res) => {
