@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: packages/server
     autoDeploy: true
-    branch: master
+    branch: main
     buildCommand: npm install && npx prisma generate && npm run build
     startCommand: node dist/index.js
     envVars:
@@ -19,7 +19,7 @@ services:
     name: houseduty-client
     rootDir: packages/client
     autoDeploy: true
-    branch: master
+    branch: main
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
