@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
 
 interface DutyInstance { id: string; status: string; template?: { name: string; defaultPoints: number }; }
-interface Kid { id: string; name: string; avatarSlug: string; dutyInstances: DutyInstance[]; }
+interface Kid { id: string; name: string; avatarSlug: string; dutyInstances: DutyInstance[]; morningReminderTime?: string | null; eveningReminderTime?: string | null; }
 interface Template { id: string; name: string; defaultPoints: number; recurrence: string; }
 
 const AVATAR_EMOJI: Record<string, string> = {
