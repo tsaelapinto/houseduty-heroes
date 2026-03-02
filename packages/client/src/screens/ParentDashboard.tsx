@@ -82,6 +82,10 @@ const ParentDashboard = () => {
   const [assignError, setAssignError] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
 
+  // Family code copy state
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [showFullCode, setShowFullCode] = useState(false);
+
   // Invite partner modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
@@ -100,6 +104,13 @@ const ParentDashboard = () => {
   const [newDutyPoints, setNewDutyPoints] = useState('10');
   const [newDutyRecurrence, setNewDutyRecurrence] = useState('daily');
   const [newDutyError, setNewDutyError] = useState('');
+
+  // Reminder modal state
+  const [reminderTarget, setReminderTarget] = useState<any>(null);
+  const [morningTime, setMorningTime] = useState('');
+  const [eveningTime, setEveningTime] = useState('');
+  const [reminderLoading, setReminderLoading] = useState(false);
+
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -240,6 +251,25 @@ const ParentDashboard = () => {
     }
   };
 
+  const handleUpdateReminders = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reminderTarget) return;
+    setReminderLoading(true);
+    try {
+      await apiClient.patch(`/kids/${reminderTarget.id}/reminders`, {
+        morningReminderTime: morningTime,
+        eveningReminderTime: eveningTime,
+      });
+      setReminderTarget(null);
+      refreshKids();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update reminders');
+    } finally {
+      setReminderLoading(false);
+    }
+  };
+
   const handleCopyInvite = () => {
     if (!inviteUrl) return;
     navigator.clipboard.writeText(inviteUrl).then(() => {
@@ -280,14 +310,33 @@ const ParentDashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-500">Hi, <strong>{user?.name}</strong></span>
-            {/* Family code — share this with kids so they can log in on a new device */}
-            <button
-              title={`Family code: ${user?.householdId}`}
-              onClick={() => { navigator.clipboard.writeText(user?.householdId ?? ''); }}
-              className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 font-mono transition"
-            >
-              🔑 {user?.householdId?.slice(0, 8)}…
-            </button>
+            {/* Family Code — share with kids so they can log in on a new device */}
+            <div className="relative flex items-center gap-1 bg-slate-100 rounded-xl px-3 py-1.5 border border-slate-200">
+              <span className="text-sm">🔑</span>
+              <button
+                onClick={() => setShowFullCode((v) => !v)}
+                className="font-mono text-xs text-slate-600 hover:text-indigo-600 transition select-all cursor-pointer"
+                title="Click to show/hide full code"
+              >
+                {showFullCode ? user?.householdId : `${user?.householdId?.slice(0, 8)}…`}
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(user?.householdId ?? '');
+                  setCodeCopied(true);
+                  setShowFullCode(true);
+                  setTimeout(() => setCodeCopied(false), 2500);
+                }}
+                className={`ml-1 text-xs font-bold px-2 py-0.5 rounded-lg transition ${
+                  codeCopied
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                }`}
+                title="Copy family code"
+              >
+                {codeCopied ? '✓ Copied!' : 'Copy'}
+              </button>
+            </div>
             <LanguageToggle />
             <button onClick={openDutyLibrary}
               className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
@@ -370,10 +419,19 @@ const ParentDashboard = () => {
                   <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 transition-all" style={{ width: `${pct}%` }} />
                 </div>
 
-                <button onClick={() => openAssign(kid)}
-                  className="w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow">
-                  + {t('parent.assign_duty')}
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => openAssign(kid)}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow">
+                    + {t('parent.assign_duty')}
+                  </button>
+                  <button
+                    onClick={() => { setReminderTarget(kid); setMorningTime(kid.morningReminderTime || ''); setEveningTime(kid.eveningReminderTime || ''); }}
+                    className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-yellow-100 hover:text-yellow-600 transition"
+                    title="Reminders"
+                  >
+                    🔔
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -578,6 +636,33 @@ const ParentDashboard = () => {
               </button>
             </form>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Reminders Modal ─────────────────────────────────────────── */}
+      {reminderTarget && (
+        <Modal title={`🔔 Daily Reminders for ${reminderTarget.name}`} onClose={() => setReminderTarget(null)}>
+          <form onSubmit={handleUpdateReminders} className="space-y-5">
+            <p className="text-sm text-slate-500">Pick the times when heroes should receive mission alerts on their devices.</p>
+            
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Morning Alert (e.g. 08:00)</label>
+              <input type="time" className={inputCls} value={morningTime} onChange={e => setMorningTime(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Evening Alert (e.g. 19:30)</label>
+              <input type="time" className={inputCls} value={eveningTime} onChange={e => setEveningTime(e.target.value)} />
+            </div>
+
+            <button type="submit" disabled={reminderLoading}
+              className="w-full py-4 rounded-2xl font-black text-white text-base bg-gradient-to-r from-yellow-400 to-orange-500 hover:opacity-90 transition shadow-lg disabled:opacity-50">
+              {reminderLoading ? 'Setting...' : '✅ Set Hero Reminders'}
+            </button>
+            <button type="button" onClick={() => { setMorningTime(''); setEveningTime(''); }} className="w-full text-xs text-slate-400 hover:text-red-500 transition">
+              Clear all reminders
+            </button>
+          </form>
         </Modal>
       )}
     </div>
