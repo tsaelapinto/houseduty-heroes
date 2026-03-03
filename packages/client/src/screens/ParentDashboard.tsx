@@ -8,6 +8,12 @@ import LanguageToggle from '../components/LanguageToggle';
 interface DutyInstance { id: string; status: string; template?: { name: string; defaultPoints: number }; }
 interface Kid { id: string; name: string; avatarSlug: string; dutyInstances: DutyInstance[]; morningReminderTime?: string | null; eveningReminderTime?: string | null; }
 interface Template { id: string; name: string; defaultPoints: number; recurrence: string; }
+interface CycleInstance { id: string; status: string; date: string; pointsOverride?: number; template?: { name: string; defaultPoints: number }; }
+interface CycleDay { date: string; duties: CycleInstance[]; }
+interface KidSummary { kidId: string; kidName: string; avatarSlug: string; totalPoints: number; approved: number; total: number; }
+interface CycleData { id: string; startAt: string; endAt: string; status: string; kidSummaries: KidSummary[]; }
+interface CycleReport { id: string; startAt: string; endAt: string; kidSummaries: KidSummary[]; }
+interface HeroDetail { kid: { id: string; name: string; avatarSlug: string }; cycle: CycleData | null; days: CycleDay[]; }
 
 const AVATAR_EMOJI: Record<string, string> = {
   'strawberry-elephant': '🐘', 'ballerina-capuchina': '🩰',
@@ -118,6 +124,29 @@ const ParentDashboard = () => {
   const [eveningTime, setEveningTime] = useState('');
   const [reminderLoading, setReminderLoading] = useState(false);
 
+  // Hero detail (cycle drilldown) state
+  const [heroDetail, setHeroDetail] = useState<HeroDetail | null>(null);
+  const [heroDetailLoading, setHeroDetailLoading] = useState(false);
+
+  // Delete hero state
+  const [deleteTarget, setDeleteTarget] = useState<Kid | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Cycle panel state
+  const [cycleData, setCycleData] = useState<CycleData | null>(null);
+  const [cycleLoading, setCycleLoading] = useState(false);
+  const [cycleStartDays, setCycleStartDays] = useState(7);
+  const [startingCycle, setStartingCycle] = useState(false);
+  const [closingCycle, setClosingCycle] = useState(false);
+  const [cycleHistory, setCycleHistory] = useState<CycleReport[]>([]);
+  const [showCycleReport, setShowCycleReport] = useState<CycleReport | null>(null);
+
+  // Editable household name state
+  const [householdName, setHouseholdName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [editNameVal, setEditNameVal] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -133,6 +162,26 @@ const ParentDashboard = () => {
   }, [user?.householdId]);
 
   useEffect(() => { refreshKids(); }, [refreshKids]);
+
+  // Load active cycle + household name on mount
+  const refreshCycle = useCallback(async () => {
+    if (!user?.householdId) return;
+    setCycleLoading(true);
+    try {
+      const data = await apiClient.get(`/cycles/active?householdId=${user.householdId}`);
+      setCycleData(data);
+    } catch { setCycleData(null); }
+    finally { setCycleLoading(false); }
+  }, [user?.householdId]);
+
+  useEffect(() => { refreshCycle(); }, [refreshCycle]);
+
+  useEffect(() => {
+    if (!user?.householdId) return;
+    apiClient.get(`/household?householdId=${user.householdId}`)
+      .then((h: any) => setHouseholdName(h.name))
+      .catch(() => {});
+  }, [user?.householdId]);
 
   const loadTemplates = async () => {
     const data = await apiClient.get(`/duties/templates?householdId=${user?.householdId ?? ''}`);
@@ -315,6 +364,72 @@ const ParentDashboard = () => {
     } catch (err) { console.error(err); }
   };
 
+  const handleDeleteHero = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await apiClient.deleteBody(`/kids/${deleteTarget.id}`, { householdId: user?.householdId });
+      setDeleteTarget(null);
+      refreshKids();
+    } catch (err: any) { alert(err.message || 'Failed to remove hero'); }
+    finally { setDeleteLoading(false); }
+  };
+
+  const openHeroDetail = async (kid: Kid) => {
+    setHeroDetailLoading(true);
+    setHeroDetail(null);
+    try {
+      const data = await apiClient.get(`/kids/${kid.id}/cycle-detail?householdId=${user?.householdId ?? ''}`);
+      setHeroDetail(data);
+    } catch { setHeroDetail(null); }
+    finally { setHeroDetailLoading(false); }
+  };
+
+  const handleStartCycle = async () => {
+    if (!user?.householdId) return;
+    setStartingCycle(true);
+    try {
+      await apiClient.post('/cycles/start', { householdId: user.householdId, durationDays: cycleStartDays });
+      await refreshCycle();
+      refreshKids();
+    } catch (err: any) { alert(err.message || 'Failed to start cycle'); }
+    finally { setStartingCycle(false); }
+  };
+
+  const handleCloseCycle = async () => {
+    if (!user?.householdId) return;
+    setClosingCycle(true);
+    try {
+      // Load history before closing so we can show report
+      const history = await apiClient.get(`/cycles/history?householdId=${user.householdId}`);
+      await apiClient.post('/cycles/close', { householdId: user.householdId });
+      const fresh = await apiClient.get(`/cycles/history?householdId=${user.householdId}`);
+      setCycleHistory(fresh);
+      // Show report for the cycle that was just closed (first in fresh history)
+      if (fresh.length > 0) setShowCycleReport(fresh[0]);
+      setCycleData(null);
+      refreshKids();
+    } catch (err: any) { alert(err.message || 'Failed to end cycle'); }
+    finally { setClosingCycle(false); }
+  };
+
+  const loadCycleHistory = async () => {
+    if (!user?.householdId) return;
+    const data = await apiClient.get(`/cycles/history?householdId=${user.householdId}`);
+    setCycleHistory(data);
+  };
+
+  const handleSaveHouseholdName = async () => {
+    if (!editNameVal.trim()) return;
+    setSavingName(true);
+    try {
+      const updated = await apiClient.patch('/household', { householdId: user?.householdId, name: editNameVal.trim() });
+      setHouseholdName((updated as any).name);
+      setEditingName(false);
+    } catch (err: any) { alert(err.message || 'Failed to rename'); }
+    finally { setSavingName(false); }
+  };
+
   const totalPending = kids.reduce((s, k) => s + k.dutyInstances.filter(d => d.status === 'SUBMITTED').length, 0);
 
   if (loading) return (
@@ -335,7 +450,31 @@ const ParentDashboard = () => {
             <span className="text-2xl">🏠</span>
             <div>
               <h1 className="text-lg font-black text-slate-800 leading-tight">{t('appName')}</h1>
-              <p className="text-xs text-slate-400">{t('parent.console_label')}</p>
+              {editingName ? (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <input
+                    className="text-xs font-medium border border-indigo-300 rounded-lg px-2 py-0.5 bg-white focus:outline-none w-36"
+                    value={editNameVal}
+                    onChange={e => setEditNameVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveHouseholdName(); if (e.key === 'Escape') setEditingName(false); }}
+                    autoFocus
+                  />
+                  <button onClick={handleSaveHouseholdName} disabled={savingName}
+                    className="text-xs px-2 py-0.5 rounded-lg bg-indigo-500 text-white font-bold disabled:opacity-50">
+                    {savingName ? '…' : '✓'}
+                  </button>
+                  <button onClick={() => setEditingName(false)} className="text-xs px-1.5 py-0.5 rounded-lg bg-slate-100 text-slate-500">✕</button>
+                </div>
+              ) : (
+                <button
+                  className="text-xs text-slate-400 flex items-center gap-1 hover:text-indigo-500 transition group"
+                  onClick={() => { setEditNameVal(householdName); setEditingName(true); }}
+                  title="Rename household"
+                >
+                  <span className="group-hover:underline">{householdName || t('parent.console_label')}</span>
+                  <span className="opacity-0 group-hover:opacity-100 text-xs">✏️</span>
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -408,6 +547,74 @@ const ParentDashboard = () => {
           ))}
         </div>
 
+        {/* Cycle Panel */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-8 card-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-black text-slate-700 flex items-center gap-2">🔄 Current Cycle</h2>
+            {cycleHistory.length === 0 && !cycleLoading && (
+              <button onClick={loadCycleHistory} className="text-xs text-indigo-500 hover:underline">View History</button>
+            )}
+            {cycleHistory.length > 0 && (
+              <button onClick={() => setShowCycleReport(cycleHistory[0])} className="text-xs text-indigo-500 hover:underline">📊 Last Report</button>
+            )}
+          </div>
+
+          {cycleLoading ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : cycleData ? (
+            <div>
+              <div className="flex items-center gap-4 mb-4 text-sm">
+                <span className="text-slate-500">
+                  {new Date(cycleData.startAt).toLocaleDateString()} → {new Date(cycleData.endAt).toLocaleDateString()}
+                </span>
+                {(() => {
+                  const daysLeft = Math.max(0, Math.ceil((new Date(cycleData.endAt).getTime() - Date.now()) / 86400000));
+                  const totalDays = Math.ceil((new Date(cycleData.endAt).getTime() - new Date(cycleData.startAt).getTime()) / 86400000);
+                  const pct = Math.round(100 - (daysLeft / totalDays) * 100);
+                  return (
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="h-2 bg-slate-100 rounded-full flex-1 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{daysLeft}d left</span>
+                    </div>
+                  );
+                })()}
+              </div>
+              {cycleData.kidSummaries && cycleData.kidSummaries.length > 0 && (
+                <div className="flex gap-3 flex-wrap mb-4">
+                  {cycleData.kidSummaries.map(ks => (
+                    <div key={ks.kidId} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-1.5 text-xs">
+                      <span>{AVATAR_EMOJI[ks.avatarSlug] ?? AVATAR_EMOJI.default}</span>
+                      <span className="font-bold text-slate-700">{ks.kidName}</span>
+                      <span className="text-emerald-600 font-bold">⭐ {ks.totalPoints}</span>
+                      <span className="text-slate-400">{ks.approved}/{ks.total}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={handleCloseCycle} disabled={closingCycle}
+                className="px-4 py-2 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition disabled:opacity-50">
+                {closingCycle ? 'Ending…' : '🏁 End Cycle & See Report'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-slate-400 flex-1">No active cycle. Start one to track progress across the week.</p>
+              <select value={cycleStartDays} onChange={e => setCycleStartDays(Number(e.target.value))}
+                className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 font-medium">
+                <option value={7}>7 days</option>
+                <option value={14}>14 days</option>
+                <option value={30}>30 days</option>
+              </select>
+              <button onClick={handleStartCycle} disabled={startingCycle}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm shadow hover:opacity-90 transition disabled:opacity-50">
+                {startingCycle ? 'Starting…' : '▶ Start Cycle'}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Heroes grid */}
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t('parent.heroes_tab')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -420,13 +627,18 @@ const ParentDashboard = () => {
             const avatar = AVATAR_EMOJI[kid.avatarSlug] ?? AVATAR_EMOJI.default;
             return (
               <div key={kid.id} className="bg-white rounded-2xl p-6 card-shadow border border-slate-100 hover:shadow-md transition-shadow flex flex-col">
-                <div className="flex items-center gap-4 mb-4">
+                <button
+                  className="flex items-center gap-4 mb-4 text-left hover:opacity-80 transition group"
+                  onClick={() => openHeroDetail(kid)}
+                  title="View cycle detail"
+                >
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-3xl flex-shrink-0">{avatar}</div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-800">{kid.name}</h3>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-black text-slate-800 group-hover:text-indigo-600 transition">{kid.name}</h3>
                     <p className="text-sm text-slate-400">{total} {t('parent.duties_today')}</p>
                   </div>
-                </div>
+                  <span className="text-slate-300 group-hover:text-indigo-400 text-sm">→</span>
+                </button>
 
                 {/* Status badges */}
                 <div className="flex gap-2 flex-wrap mb-4">
@@ -467,6 +679,13 @@ const ParentDashboard = () => {
                     title="Reset PIN"
                   >
                     🔐
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(kid)}
+                    className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-500 transition"
+                    title="Remove hero"
+                  >
+                    🗑️
                   </button>
                 </div>
               </div>
@@ -739,6 +958,138 @@ const ParentDashboard = () => {
               Clear all reminders
             </button>
           </form>
+        </Modal>
+      )}
+
+      {/* ── Delete Hero Confirm Modal ────────────────────────────────── */}
+      {deleteTarget && (
+        <Modal title="🗑️ Remove Hero" onClose={() => setDeleteTarget(null)}>
+          <div className="space-y-5">
+            <div className="flex items-center gap-4 p-4 bg-red-50 rounded-2xl">
+              <span className="text-4xl">{AVATAR_EMOJI[deleteTarget.avatarSlug] ?? AVATAR_EMOJI.default}</span>
+              <div>
+                <p className="font-black text-slate-800">{deleteTarget.name}</p>
+                <p className="text-xs text-slate-500">{deleteTarget.dutyInstances.length} duties today</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600">This will permanently delete <strong>{deleteTarget.name}</strong> and all their duty history. This cannot be undone.</p>
+            <button onClick={handleDeleteHero} disabled={deleteLoading}
+              className="w-full py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-red-500 to-rose-600 hover:opacity-90 transition disabled:opacity-50">
+              {deleteLoading ? 'Removing…' : `🗑️ Yes, Remove ${deleteTarget.name}`}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Hero Detail / Cycle Drilldown Modal ─────────────────────── */}
+      {(heroDetailLoading || heroDetail) && (
+        <Modal
+          title={heroDetail ? `${AVATAR_EMOJI[heroDetail.kid.avatarSlug] ?? '🦸'} ${heroDetail.kid.name} — Cycle View` : 'Loading…'}
+          onClose={() => { setHeroDetail(null); setHeroDetailLoading(false); }}
+        >
+          {heroDetailLoading && !heroDetail ? (
+            <div className="text-center py-8 text-slate-400">Loading cycle…</div>
+          ) : heroDetail?.cycle === null ? (
+            <div className="text-center py-8">
+              <p className="text-slate-400 text-sm">No active cycle.</p>
+              <p className="text-xs text-slate-300 mt-1">Start a cycle from the dashboard to see daily progress here.</p>
+            </div>
+          ) : (
+            <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="text-xs text-slate-400 mb-3">
+                Cycle: {heroDetail?.cycle && new Date(heroDetail.cycle.startAt).toLocaleDateString()} – {heroDetail?.cycle && new Date(heroDetail.cycle.endAt).toLocaleDateString()}
+              </div>
+              {heroDetail?.days.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">No duties assigned in this cycle yet.</p>
+              )}
+              {heroDetail?.days.map(day => {
+                const date = new Date(day.date);
+                const isToday = new Date().toDateString() === date.toDateString();
+                const allDone = day.duties.length > 0 && day.duties.every(d => d.status === 'APPROVED');
+                return (
+                  <div key={day.date} className={`rounded-xl border p-3 ${isToday ? 'border-indigo-200 bg-indigo-50' : 'border-slate-100 bg-slate-50'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-xs font-black ${isToday ? 'text-indigo-600' : 'text-slate-500'}`}>
+                        {isToday ? '📍 Today · ' : ''}{date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                      {allDone && <span className="text-xs text-emerald-500 font-bold">✅ Complete</span>}
+                    </div>
+                    {day.duties.length === 0 ? (
+                      <span className="text-xs text-slate-300 italic">No duties</span>
+                    ) : (
+                      <div className="space-y-1">
+                        {day.duties.map(duty => (
+                          <div key={duty.id} className="flex items-center gap-2 text-sm">
+                            <span>{getDutyEmoji(duty.template?.name ?? '')}</span>
+                            <span className="flex-1 text-slate-700 font-medium">{duty.template?.name ?? 'Duty'}</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              duty.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' :
+                              duty.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-600' :
+                              'bg-amber-100 text-amber-600'
+                            }`}>
+                              {duty.status === 'APPROVED' ? '✅ Done' : duty.status === 'SUBMITTED' ? '📬 Review' : '⏳ Pending'}
+                            </span>
+                            <span className="text-xs text-slate-400">{duty.template?.defaultPoints ?? 0}pts</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ── Cycle Report Modal ───────────────────────────────────────── */}
+      {showCycleReport && (
+        <Modal
+          title={`📊 Cycle Report`}
+          onClose={() => setShowCycleReport(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">
+              {new Date(showCycleReport.startAt).toLocaleDateString()} – {new Date(showCycleReport.endAt).toLocaleDateString()}
+            </p>
+            {showCycleReport.kidSummaries.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-4">No data for this cycle.</p>
+            ) : (
+              <div className="space-y-3">
+                {[...showCycleReport.kidSummaries].sort((a, b) => b.totalPoints - a.totalPoints).map((ks, i) => (
+                  <div key={ks.kidId} className={`flex items-center gap-4 p-4 rounded-2xl ${i === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-100'}`}>
+                    <span className="text-3xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                    <span className="text-2xl">{AVATAR_EMOJI[ks.avatarSlug] ?? AVATAR_EMOJI.default}</span>
+                    <div className="flex-1">
+                      <div className="font-black text-slate-800">{ks.kidName}</div>
+                      <div className="text-xs text-slate-500">{ks.approved} / {ks.total} duties done</div>
+                      <div className="h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
+                          style={{ width: `${ks.total > 0 ? Math.round((ks.approved / ks.total) * 100) : 0}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-black text-amber-500">⭐ {ks.totalPoints}</div>
+                      <div className="text-xs text-slate-400">points</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {cycleHistory.length > 1 && (
+              <div className="mt-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Previous Cycles</p>
+                <div className="space-y-1">
+                  {cycleHistory.slice(1).map(c => (
+                    <button key={c.id} onClick={() => setShowCycleReport(c)}
+                      className="w-full text-left text-xs text-slate-500 hover:text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition">
+                      {new Date(c.startAt).toLocaleDateString()} – {new Date(c.endAt).toLocaleDateString()} · {c.kidSummaries.reduce((s, k) => s + k.totalPoints, 0)} total pts
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
     </div>

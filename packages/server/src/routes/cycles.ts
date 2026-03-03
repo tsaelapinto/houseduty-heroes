@@ -17,6 +17,7 @@ const recurrenceDays = (recurrence: string, startAt: Date, totalDays: number): n
       recurrence === '3x'       ? [1, 3, 5].includes(dow) :   // Mon Wed Fri
       recurrence === '2x'       ? [2, 4].includes(dow)   :    // Tue Thu
       recurrence === 'weekly'   ? i === 0                :    // once: first day
+      recurrence === 'once_per_cycle' ? i === 0          :    // same as weekly for now
       true;                                                    // daily (default)
     if (ok) days.push(i);
   }
@@ -72,12 +73,16 @@ router.get('/active', async (req, res) => {
 });
 
 // ─── POST /cycles/start ────────────────────────────────────────────────────
-// Closes the current active cycle (if any) and starts a new 7-day cycle.
-// Body: { householdId, mode: 'same' | 'rotate' | 'manual', manualAssignments?: [{ templateId, kidId }] }
+// Closes the current active cycle (if any) and starts a new cycle.
+// Body: { householdId, mode: 'same' | 'rotate' | 'manual', manualAssignments?: [{ templateId, kidId }], durationDays?: number }
 router.post('/start', async (req, res) => {
   try {
-    const { householdId, mode = 'same', manualAssignments, durationDays = 14 } = req.body;
+    const { householdId, mode = 'same', manualAssignments, durationDays } = req.body;
     if (!householdId) return res.status(400).json({ error: 'householdId required' });
+
+    // Fetch household config for default duration/timezone
+    const household = await prisma.household.findUnique({ where: { id: householdId } });
+    if (!household) return res.status(404).json({ error: 'Household not found' });
 
     // 1. Close any current ACTIVE cycle
     await prisma.cycle.updateMany({
@@ -85,9 +90,11 @@ router.post('/start', async (req, res) => {
       data: { status: 'CLOSED' },
     });
 
-    // 2. Determine start/end
+    // 2. Determine start/end using timezone logic (simplified to local/UTC for now, assuming server handles offset)
     const startAt = startOfDay(new Date());
-    const endAt = addDays(startAt, Number(durationDays) || 14);
+    const freq = (household as any).cycleFrequency as string | undefined;
+    const finalDuration = Number(durationDays) || (freq === 'biweekly' ? 14 : freq === 'monthly' ? 30 : 7);
+    const endAt = addDays(startAt, finalDuration);
 
     // 3. Create new cycle
     const cycle = await prisma.cycle.create({
@@ -185,7 +192,7 @@ router.post('/start', async (req, res) => {
       for (const t of tpls) recurrenceMap[t.id] = t.recurrence ?? 'daily';
     }
 
-    const totalDays = Number(durationDays) || 14;
+    const totalDays = finalDuration;
     const instances: any[] = [];
     for (const { templateId, kidId } of assignments) {
       const recurrence = recurrenceMap[templateId] ?? 'daily';
@@ -214,6 +221,63 @@ router.post('/start', async (req, res) => {
   } catch (err) {
     console.error('POST /cycles/start error:', err);
     return res.status(500).json({ error: 'Failed to start cycle' });
+  }
+});
+
+// ─── POST /cycles/close ───────────────────────────────────────────────────
+router.post('/close', async (req, res) => {
+  try {
+    const { householdId } = req.body;
+    if (!householdId) return res.status(400).json({ error: 'householdId required' });
+
+    const result = await prisma.cycle.updateMany({
+      where: { householdId, status: 'ACTIVE' },
+      data: { status: 'CLOSED' },
+    });
+    return res.json({ ok: true, closed: result.count });
+  } catch (err) {
+    console.error('POST /cycles/close error:', err);
+    return res.status(500).json({ error: 'Failed to close cycle' });
+  }
+});
+
+// ─── GET /cycles/history ──────────────────────────────────────────────────
+router.get('/history', async (req, res) => {
+  try {
+    const { householdId } = req.query as { householdId: string };
+    if (!householdId) return res.status(400).json({ error: 'householdId required' });
+
+    const cycles = await prisma.cycle.findMany({
+      where: { householdId, status: 'CLOSED' },
+      orderBy: { startAt: 'desc' },
+      take: 10,
+      include: {
+        dutyInstances: {
+          include: { template: true, kid: true, approval: true },
+        },
+      },
+    });
+
+    const reports = cycles.map(cycle => {
+      const kidMap: Record<string, { kidId: string; kidName: string; avatarSlug: string; totalPoints: number; approved: number; total: number }> = {};
+      for (const inst of cycle.dutyInstances) {
+        if (!kidMap[inst.kidId]) {
+          kidMap[inst.kidId] = { kidId: inst.kidId, kidName: inst.kid.name, avatarSlug: inst.kid.avatarSlug, totalPoints: 0, approved: 0, total: 0 };
+        }
+        const k = kidMap[inst.kidId];
+        k.total++;
+        if (inst.status === 'APPROVED') {
+          k.approved++;
+          k.totalPoints += inst.approval?.pointsAwarded ?? inst.pointsOverride ?? inst.template?.defaultPoints ?? 0;
+        }
+      }
+      return { id: cycle.id, startAt: cycle.startAt, endAt: cycle.endAt, kidSummaries: Object.values(kidMap) };
+    });
+
+    return res.json(reports);
+  } catch (err) {
+    console.error('GET /cycles/history error:', err);
+    return res.status(500).json({ error: 'Failed to fetch cycle history' });
   }
 });
 

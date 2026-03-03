@@ -44,4 +44,18 @@ router.get('/stats', async (req, res) => {
   res.json({ kidCount, pendingApprovals });
 });
 
+// PATCH / — rename household
+router.patch('/', async (req, res) => {
+  const { householdId, name } = req.body;
+  if (!householdId) return res.status(400).json({ error: 'householdId is required' });
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
+
+  const updated = await prisma.household.update({
+    where: { id: householdId },
+    data: { name: name.trim() },
+    select: { id: true, name: true },
+  });
+  res.json(updated);
+});
+
 export default router;
