@@ -444,16 +444,16 @@ const ParentDashboard = () => {
   return (
     <div data-testid="parent-dashboard" className="min-h-screen bg-slate-50">
       {/* Top nav */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🏠</span>
-            <div>
-              <h1 className="text-lg font-black text-slate-800 leading-tight">{t('appName')}</h1>
+      <div className="bg-white border-b border-slate-100 px-4 py-3 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-5xl mx-auto flex items-center gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xl">🏠</span>
+            <div className="hidden sm:block">
               {editingName ? (
-                <div className="flex items-center gap-1 mt-0.5">
+                <div className="flex items-center gap-1">
                   <input
-                    className="text-xs font-medium border border-indigo-300 rounded-lg px-2 py-0.5 bg-white focus:outline-none w-36"
+                    className="text-xs font-medium border border-indigo-300 rounded-lg px-2 py-0.5 bg-white focus:outline-none w-28"
                     value={editNameVal}
                     onChange={e => setEditNameVal(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSaveHouseholdName(); if (e.key === 'Escape') setEditingName(false); }}
@@ -467,25 +467,24 @@ const ParentDashboard = () => {
                 </div>
               ) : (
                 <button
-                  className="text-xs text-slate-400 flex items-center gap-1 hover:text-indigo-500 transition group"
+                  className="text-xs text-slate-400 flex items-center gap-1 hover:text-indigo-500 transition group leading-none"
                   onClick={() => { setEditNameVal(householdName); setEditingName(true); }}
-                  title="Rename household"
                 >
-                  <span className="group-hover:underline">{householdName || t('parent.console_label')}</span>
-                  <span className="opacity-0 group-hover:opacity-100 text-xs">✏️</span>
+                  <span>{householdName || t('parent.console_label')}</span>
+                  <span className="opacity-0 group-hover:opacity-100">✏️</span>
                 </button>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500">Hi, <strong>{user?.name}</strong></span>
-            {/* Family Code — share with kids so they can log in on a new device */}
-            <div className="relative flex items-center gap-1 bg-slate-100 rounded-xl px-3 py-1.5 border border-slate-200">
-              <span className="text-sm">🔑</span>
+
+          {/* Scrollable action row */}
+          <div className="flex items-center gap-2 overflow-x-auto flex-1 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+            {/* Family Code */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200 shrink-0">
+              <span className="text-xs">🔑</span>
               <button
                 onClick={() => setShowFullCode((v) => !v)}
-                className="font-mono text-xs text-slate-600 hover:text-indigo-600 transition select-all cursor-pointer"
-                title="Click to show/hide full code"
+                className="font-mono text-xs text-slate-600 hover:text-indigo-600 transition cursor-pointer"
               >
                 {showFullCode ? user?.householdId : `${user?.householdId?.slice(0, 8)}…`}
               </button>
@@ -496,128 +495,58 @@ const ParentDashboard = () => {
                   setShowFullCode(true);
                   setTimeout(() => setCodeCopied(false), 2500);
                 }}
-                className={`ml-1 text-xs font-bold px-2 py-0.5 rounded-lg transition ${
-                  codeCopied
-                    ? 'bg-green-100 text-green-600'
-                    : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                className={`ml-0.5 text-xs font-bold px-1.5 py-0.5 rounded-lg transition ${
+                  codeCopied ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
                 }`}
-                title="Copy family code"
               >
-                {codeCopied ? '✓ Copied!' : 'Copy'}
+                {codeCopied ? '✓' : t('parent.copy') || 'Copy'}
               </button>
             </div>
-            <LanguageToggle />
-            <button onClick={openDutyLibrary}
-              className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
-              📋 {t('parent.duties_tab')}
-            </button>
+
             <button onClick={() => { setShowAddKid(true); setAddKidError(''); }}
-              className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow hover:opacity-90 transition">
-              {t('parent.add_hero')}
+              className="text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow hover:opacity-90 transition shrink-0">
+              + {t('parent.add_hero')}
+            </button>
+            <button onClick={openDutyLibrary}
+              className="text-sm px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition shrink-0">
+              📋
             </button>
             <button onClick={() => navigate('/assign')} data-testid="btn-assign-screen"
-              className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
-              📈 Assignments
+              className="text-sm px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition shrink-0">
+              📈
             </button>
+            <LanguageToggle />
             <button onClick={handleOpenInvite} data-testid="btn-invite-partner"
-              className="text-sm px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition">
+              className="text-sm px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition shrink-0 hidden sm:block">
               {t('invite.btn')}
             </button>
             <button onClick={logout} data-testid="btn-logout"
-              className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition">
+              className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition shrink-0">
               {t('parent.logout')}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-5">
           {[
             { label: t('parent.heroes_tab'), value: kids.length, icon: '🦸', color: 'from-indigo-500 to-purple-600' },
             { label: t('parent.awaiting_review'), value: totalPending, icon: '⏳', color: 'from-amber-400 to-orange-500' },
             { label: t('parent.total_duties'), value: kids.reduce((s, k) => s + k.dutyInstances.length, 0), icon: '✅', color: 'from-emerald-400 to-teal-500' },
           ].map(stat => (
-            <div key={stat.label} className={`bg-gradient-to-br ${stat.color} rounded-2xl p-5 text-white card-shadow`}>
-              <div className="text-3xl mb-2">{stat.icon}</div>
-              <div className="text-3xl font-black">{stat.value}</div>
-              <div className="text-white/70 text-sm font-medium mt-0.5">{stat.label}</div>
+            <div key={stat.label} className={`bg-gradient-to-br ${stat.color} rounded-2xl p-3 md:p-5 text-white card-shadow`}>
+              <div className="text-2xl mb-1">{stat.icon}</div>
+              <div className="text-2xl font-black">{stat.value}</div>
+              <div className="text-white/70 text-xs font-medium mt-0.5 leading-tight">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Cycle Panel */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-8 card-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-black text-slate-700 flex items-center gap-2">🔄 Current Cycle</h2>
-            {cycleHistory.length === 0 && !cycleLoading && (
-              <button onClick={loadCycleHistory} className="text-xs text-indigo-500 hover:underline">View History</button>
-            )}
-            {cycleHistory.length > 0 && (
-              <button onClick={() => setShowCycleReport(cycleHistory[0])} className="text-xs text-indigo-500 hover:underline">📊 Last Report</button>
-            )}
-          </div>
-
-          {cycleLoading ? (
-            <p className="text-sm text-slate-400">Loading…</p>
-          ) : cycleData ? (
-            <div>
-              <div className="flex items-center gap-4 mb-4 text-sm">
-                <span className="text-slate-500">
-                  {new Date(cycleData.startAt).toLocaleDateString()} → {new Date(cycleData.endAt).toLocaleDateString()}
-                </span>
-                {(() => {
-                  const daysLeft = Math.max(0, Math.ceil((new Date(cycleData.endAt).getTime() - Date.now()) / 86400000));
-                  const totalDays = Math.ceil((new Date(cycleData.endAt).getTime() - new Date(cycleData.startAt).getTime()) / 86400000);
-                  const pct = Math.round(100 - (daysLeft / totalDays) * 100);
-                  return (
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="h-2 bg-slate-100 rounded-full flex-1 overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-slate-400 whitespace-nowrap">{daysLeft}d left</span>
-                    </div>
-                  );
-                })()}
-              </div>
-              {cycleData.kidSummaries && cycleData.kidSummaries.length > 0 && (
-                <div className="flex gap-3 flex-wrap mb-4">
-                  {cycleData.kidSummaries.map(ks => (
-                    <div key={ks.kidId} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-1.5 text-xs">
-                      <span>{AVATAR_EMOJI[ks.avatarSlug] ?? AVATAR_EMOJI.default}</span>
-                      <span className="font-bold text-slate-700">{ks.kidName}</span>
-                      <span className="text-emerald-600 font-bold">⭐ {ks.totalPoints}</span>
-                      <span className="text-slate-400">{ks.approved}/{ks.total}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button onClick={handleCloseCycle} disabled={closingCycle}
-                className="px-4 py-2 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition disabled:opacity-50">
-                {closingCycle ? 'Ending…' : '🏁 End Cycle & See Report'}
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-slate-400 flex-1">No active cycle. Start one to track progress across the week.</p>
-              <select value={cycleStartDays} onChange={e => setCycleStartDays(Number(e.target.value))}
-                className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 font-medium">
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-              </select>
-              <button onClick={handleStartCycle} disabled={startingCycle}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm shadow hover:opacity-90 transition disabled:opacity-50">
-                {startingCycle ? 'Starting…' : '▶ Start Cycle'}
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Heroes grid */}
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{t('parent.heroes_tab')}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">{t('parent.heroes_tab')}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {kids.map(kid => {
             const pending = kid.dutyInstances.filter(d => d.status === 'ASSIGNED').length;
             const submitted = kid.dutyInstances.filter(d => d.status === 'SUBMITTED').length;
@@ -699,6 +628,73 @@ const ParentDashboard = () => {
             <p className="font-bold text-sm">{t('parent.modal_add_hero')}</p>
             <p className="text-xs mt-1">{t('parent.register_kid')}</p>
           </div>
+        </div>
+
+        {/* Cycle Panel — below heroes */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 mt-6 mb-4 card-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-black text-slate-700">🔄 Current Cycle</h2>
+            {cycleHistory.length === 0 && !cycleLoading && (
+              <button onClick={loadCycleHistory} className="text-xs text-indigo-500 hover:underline">View History</button>
+            )}
+            {cycleHistory.length > 0 && (
+              <button onClick={() => setShowCycleReport(cycleHistory[0])} className="text-xs text-indigo-500 hover:underline">📊 Last Report</button>
+            )}
+          </div>
+
+          {cycleLoading ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : cycleData ? (
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
+                <span className="text-slate-500 text-xs">
+                  {new Date(cycleData.startAt).toLocaleDateString()} → {new Date(cycleData.endAt).toLocaleDateString()}
+                </span>
+                {(() => {
+                  const daysLeft = Math.max(0, Math.ceil((new Date(cycleData.endAt).getTime() - Date.now()) / 86400000));
+                  const totalDays = Math.ceil((new Date(cycleData.endAt).getTime() - new Date(cycleData.startAt).getTime()) / 86400000);
+                  const pct = Math.round(100 - (daysLeft / totalDays) * 100);
+                  return (
+                    <div className="flex items-center gap-2 flex-1 min-w-[120px]">
+                      <div className="h-1.5 bg-slate-100 rounded-full flex-1 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{daysLeft}d left</span>
+                    </div>
+                  );
+                })()}
+              </div>
+              {cycleData.kidSummaries && cycleData.kidSummaries.length > 0 && (
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {cycleData.kidSummaries.map(ks => (
+                    <div key={ks.kidId} className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5 py-1 text-xs">
+                      <span>{AVATAR_EMOJI[ks.avatarSlug] ?? AVATAR_EMOJI.default}</span>
+                      <span className="font-bold text-slate-700">{ks.kidName}</span>
+                      <span className="text-emerald-600 font-bold">⭐{ks.totalPoints}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={handleCloseCycle} disabled={closingCycle}
+                className="px-3 py-1.5 rounded-xl bg-red-50 text-red-500 font-bold text-xs hover:bg-red-100 transition disabled:opacity-50">
+                {closingCycle ? 'Ending…' : '🏁 End Cycle & See Report'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-slate-400 flex-1">No active cycle yet.</p>
+              <select value={cycleStartDays} onChange={e => setCycleStartDays(Number(e.target.value))}
+                className="text-xs border border-slate-200 rounded-xl px-2 py-1.5 bg-white text-slate-700">
+                <option value={7}>7 days</option>
+                <option value={14}>14 days</option>
+                <option value={30}>30 days</option>
+              </select>
+              <button onClick={handleStartCycle} disabled={startingCycle}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-xs shadow hover:opacity-90 transition disabled:opacity-50">
+                {startingCycle ? 'Starting…' : '▶ Start Cycle'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
