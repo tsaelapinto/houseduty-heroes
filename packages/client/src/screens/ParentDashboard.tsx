@@ -520,11 +520,12 @@ const ParentDashboard = () => {
               className="text-sm px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold shadow-sm hover:bg-slate-50 transition shrink-0 hidden sm:block">
               {t('invite.btn')}
             </button>
-            <button onClick={logout} data-testid="btn-logout"
-              className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition shrink-0">
-              {t('parent.logout')}
-            </button>
           </div>
+          {/* Logout pinned outside scrollable so it's always visible in both LTR and RTL */}
+          <button onClick={logout} data-testid="btn-logout"
+            className="text-sm px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 font-medium transition shrink-0">
+            {t('parent.logout')}
+          </button>
         </div>
       </div>
 
