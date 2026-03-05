@@ -503,7 +503,7 @@ const ParentDashboard = () => {
               </button>
             </div>
 
-            <button onClick={() => { setShowAddKid(true); setAddKidError(''); }}
+            <button data-testid="btn-add-hero" onClick={() => { setShowAddKid(true); setAddKidError(''); }}
               className="text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow hover:opacity-90 transition shrink-0">
               + {t('parent.add_hero')}
             </button>
@@ -556,7 +556,7 @@ const ParentDashboard = () => {
             const pct = total > 0 ? Math.round((approved / total) * 100) : 0;
             const avatar = AVATAR_EMOJI[kid.avatarSlug] ?? AVATAR_EMOJI.default;
             return (
-              <div key={kid.id} className="bg-white rounded-2xl p-6 card-shadow border border-slate-100 hover:shadow-md transition-shadow flex flex-col">
+              <div key={kid.id} data-testid="kid-card" className="bg-white rounded-2xl p-6 card-shadow border border-slate-100 hover:shadow-md transition-shadow flex flex-col">
                 <button
                   className="flex items-center gap-4 mb-4 text-left hover:opacity-80 transition group"
                   onClick={() => openHeroDetail(kid)}
@@ -592,7 +592,7 @@ const ParentDashboard = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => openAssign(kid)}
+                  <button data-testid="btn-assign-duty" onClick={() => openAssign(kid)}
                     className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition shadow">
                     + {t('parent.assign_duty')}
                   </button>
@@ -623,7 +623,7 @@ const ParentDashboard = () => {
           })}
 
           {/* Add Hero card */}
-          <div onClick={() => { setShowAddKid(true); setAddKidError(''); }}
+          <div data-testid="add-hero-card" onClick={() => { setShowAddKid(true); setAddKidError(''); }}
             className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/40 cursor-pointer transition-all">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl mb-3">➕</div>
             <p className="font-bold text-sm">{t('parent.modal_add_hero')}</p>
@@ -769,7 +769,7 @@ const ParentDashboard = () => {
               </div>
             </div>
             {addKidError && <div className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">⚠️ {addKidError}</div>}
-            <button type="submit" disabled={addKidLoading}
+            <button data-testid="btn-submit-add-hero" type="submit" disabled={addKidLoading}
               className="w-full py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition disabled:opacity-60">
               {addKidLoading ? t('parent.adding') : `🦸 ${t('parent.btn_add_hero')}`}
             </button>
@@ -780,7 +780,7 @@ const ParentDashboard = () => {
       {/* ── Assign Duty Modal ───────────────────────────────────────── */}
       {assignTarget && (
         <Modal title={`📋 ${t('parent.modal_assign')} ${assignTarget.name}`} onClose={() => setAssignTarget(null)}>
-          <form onSubmit={handleAssign} className="space-y-4">
+          <form data-testid="assign-duty-modal" onSubmit={handleAssign} className="space-y-4">
             {templates.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-slate-400 text-sm mb-3">{t('parent.no_templates')}</p>
