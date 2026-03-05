@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 async function loginAsParent(page: Page) {
-  await page.goto('/');
+  await page.goto('/login');
   await expect(page.locator('[data-testid="login-screen"]')).toBeVisible({ timeout: 10000 });
   await page.locator('[data-testid="tab-login"]').click();
   await page.locator('[data-testid="role-parent"]').click();
@@ -59,5 +59,24 @@ test.describe('Parent Dashboard', () => {
     await loginAsParent(page);
     await page.locator('[data-testid="btn-logout"]').click();
     await expect(page.locator('[data-testid="login-screen"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('logout button is visible on mobile without scrolling (RTL fix)', async ({ page }) => {
+    // simulate a narrow Android phone in RTL (Hebrew)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+    await loginAsParent(page);
+
+    // btn-logout must be in the DOM and visible without any scrolling
+    const logoutBtn = page.locator('[data-testid="btn-logout"]');
+    await expect(logoutBtn).toBeVisible({ timeout: 5000 });
+
+    // It must also be inside the viewport (not scrolled off-screen)
+    const box = await logoutBtn.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390 + 1); // within viewport width
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844);
   });
 });
