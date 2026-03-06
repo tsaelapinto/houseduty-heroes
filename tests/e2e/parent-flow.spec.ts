@@ -41,6 +41,15 @@ test.describe('Parent Dashboard', () => {
 
     // New hero card should appear in the grid
     await expect(page.getByText(uniqueName)).toBeVisible({ timeout: 8000 });
+
+    // ── Cleanup: delete the test hero so prod stays clean ──────────────
+    // Find the kid card containing the unique name and click its delete button
+    const card = page.locator('[data-testid="kid-card"]').filter({ hasText: uniqueName });
+    await card.locator('button[title="Remove hero"]').click();
+    // Confirm the deletion modal
+    await page.getByRole('button', { name: new RegExp(`Remove ${uniqueName}`) }).click();
+    // Hero card should be gone
+    await expect(page.getByText(uniqueName)).not.toBeVisible({ timeout: 8000 });
   });
 
   test('parent can assign a duty to a kid', async ({ page }) => {
