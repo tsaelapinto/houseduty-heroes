@@ -370,6 +370,70 @@ router.post('/assign-template', async (req, res) => {
   }
 });
 
+// ─── GET /cycles/timeline ─────────────────────────────────────────────────
+// Returns the full day-by-day timeline for the active cycle (all kids, all duties).
+// Each day lists every DutyInstance grouped under that date with kid info.
+router.get('/timeline', async (req, res) => {
+  try {
+    const { householdId } = req.query as { householdId: string };
+    if (!householdId) return res.status(400).json({ error: 'householdId required' });
+
+    const cycle = await prisma.cycle.findFirst({
+      where: { householdId, status: 'ACTIVE' },
+      orderBy: { startAt: 'desc' },
+      include: {
+        dutyInstances: {
+          include: { template: true, kid: true, approval: true },
+          orderBy: { date: 'asc' },
+        },
+      },
+    });
+
+    if (!cycle) return res.json(null);
+
+    // Build all days in the cycle (inclusive of startAt day)
+    const totalDays = Math.max(1, Math.ceil(
+      (new Date(cycle.endAt).getTime() - new Date(cycle.startAt).getTime()) / 86_400_000
+    ));
+
+    const dayMap: Record<string, {
+      id: string; kidId: string; kidName: string; kidAvatarSlug: string;
+      templateId: string | null; templateName: string | null;
+      status: string; points: number;
+    }[]> = {};
+
+    // Pre-fill every day so days with no duties still appear
+    for (let i = 0; i < totalDays; i++) {
+      const key = addDays(new Date(cycle.startAt), i).toISOString().slice(0, 10);
+      dayMap[key] = [];
+    }
+
+    for (const inst of cycle.dutyInstances) {
+      const key = new Date(inst.date).toISOString().slice(0, 10);
+      if (!dayMap[key]) dayMap[key] = [];
+      dayMap[key].push({
+        id: inst.id,
+        kidId: inst.kidId,
+        kidName: inst.kid.name,
+        kidAvatarSlug: inst.kid.avatarSlug,
+        templateId: inst.templateId,
+        templateName: inst.template?.name ?? null,
+        status: inst.status,
+        points: inst.approval?.pointsAwarded ?? inst.pointsOverride ?? inst.template?.defaultPoints ?? 0,
+      });
+    }
+
+    const days = Object.entries(dayMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, duties]) => ({ date, duties }));
+
+    return res.json({ id: cycle.id, startAt: cycle.startAt, endAt: cycle.endAt, status: cycle.status, days });
+  } catch (err) {
+    console.error('GET /cycles/timeline error:', err);
+    return res.status(500).json({ error: 'Failed to fetch cycle timeline' });
+  }
+});
+
 // ─── DELETE /cycles/unassign-template ─────────────────────────────────────
 // Removes all future ASSIGNED instances for a template+kid in the active cycle.
 router.delete('/unassign-template', async (req, res) => {

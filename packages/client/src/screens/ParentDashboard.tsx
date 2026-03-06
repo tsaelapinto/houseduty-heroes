@@ -14,6 +14,9 @@ interface KidSummary { kidId: string; kidName: string; avatarSlug: string; total
 interface CycleData { id: string; startAt: string; endAt: string; status: string; kidSummaries: KidSummary[]; }
 interface CycleReport { id: string; startAt: string; endAt: string; kidSummaries: KidSummary[]; }
 interface HeroDetail { kid: { id: string; name: string; avatarSlug: string }; cycle: CycleData | null; days: CycleDay[]; }
+interface TimelineDuty { id: string; kidId: string; kidName: string; kidAvatarSlug: string; templateId: string | null; templateName: string | null; status: string; points: number; }
+interface TimelineDay { date: string; duties: TimelineDuty[]; }
+interface TimelineData { id: string; startAt: string; endAt: string; status: string; days: TimelineDay[]; }
 
 const AVATAR_EMOJI: Record<string, string> = {
   'strawberry-elephant': '🐘', 'ballerina-capuchina': '🩰',
@@ -140,6 +143,11 @@ const ParentDashboard = () => {
   const [closingCycle, setClosingCycle] = useState(false);
   const [cycleHistory, setCycleHistory] = useState<CycleReport[]>([]);
   const [showCycleReport, setShowCycleReport] = useState<CycleReport | null>(null);
+
+  // Cycle timeline state
+  const [cycleTimeline, setCycleTimeline] = useState<TimelineData | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   // Editable household name state
   const [householdName, setHouseholdName] = useState('');
@@ -419,6 +427,27 @@ const ParentDashboard = () => {
     setCycleHistory(data);
   };
 
+  const openCycleTimeline = async () => {
+    if (!user?.householdId) return;
+    setTimelineLoading(true);
+    setShowTimeline(true);
+    try {
+      const data = await apiClient.get(`/cycles/timeline?householdId=${user.householdId}`);
+      setCycleTimeline(data);
+    } catch { setCycleTimeline(null); }
+    finally { setTimelineLoading(false); }
+  };
+
+  const handleTimelineApprove = async (dutyId: string) => {
+    try {
+      await apiClient.post(`/duties/${dutyId}/approve`, { parentId: user?.id });
+      // Refresh timeline in-place
+      const data = await apiClient.get(`/cycles/timeline?householdId=${user?.householdId}`);
+      setCycleTimeline(data);
+      refreshKids();
+    } catch (err) { console.error(err); }
+  };
+
   const handleSaveHouseholdName = async () => {
     if (!editNameVal.trim()) return;
     setSavingName(true);
@@ -676,10 +705,16 @@ const ParentDashboard = () => {
                   ))}
                 </div>
               )}
-              <button onClick={handleCloseCycle} disabled={closingCycle}
-                className="px-3 py-1.5 rounded-xl bg-red-50 text-red-500 font-bold text-xs hover:bg-red-100 transition disabled:opacity-50">
-                {closingCycle ? 'Ending…' : '🏁 End Cycle & See Report'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={openCycleTimeline} disabled={timelineLoading}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-xs hover:bg-indigo-100 transition disabled:opacity-50">
+                  {timelineLoading ? 'Loading…' : '📅 View Timeline'}
+                </button>
+                <button onClick={handleCloseCycle} disabled={closingCycle}
+                  className="px-3 py-1.5 rounded-xl bg-red-50 text-red-500 font-bold text-xs hover:bg-red-100 transition disabled:opacity-50">
+                  {closingCycle ? 'Ending…' : '🏁 End Cycle & See Report'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
@@ -1037,6 +1072,151 @@ const ParentDashboard = () => {
             </div>
           )}
         </Modal>
+      )}
+
+      {/* ── Cycle Timeline Modal ────────────────────────────────────────── */}
+      {showTimeline && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex flex-col">
+          {/* Header */}
+          <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
+            <div>
+              <h2 className="text-base font-black text-slate-800">📅 Cycle Timeline</h2>
+              {cycleTimeline && (
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {new Date(cycleTimeline.startAt).toLocaleDateString()} → {new Date(cycleTimeline.endAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {cycleTimeline && (
+                <button onClick={handleCloseCycle} disabled={closingCycle}
+                  className="px-3 py-1.5 rounded-xl bg-red-50 text-red-500 font-bold text-xs hover:bg-red-100 transition disabled:opacity-50 shrink-0">
+                  {closingCycle ? 'Ending…' : '🏁 End Cycle'}
+                </button>
+              )}
+              <button onClick={() => { setShowTimeline(false); }}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-lg transition shrink-0">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {timelineLoading && !cycleTimeline ? (
+              <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-3">
+                <div className="text-4xl animate-spin">⏳</div>
+                <p className="font-medium">Loading timeline…</p>
+              </div>
+            ) : !cycleTimeline ? (
+              <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-3">
+                <p className="text-slate-400 text-sm">No active cycle.</p>
+                <button onClick={() => setShowTimeline(false)} className="text-indigo-500 text-sm hover:underline">
+                  Go back and start a cycle
+                </button>
+              </div>
+            ) : (
+              <div className="max-w-2xl mx-auto space-y-3">
+                {/* Cycle progress bar */}
+                {(() => {
+                  const daysLeft = Math.max(0, Math.ceil((new Date(cycleTimeline.endAt).getTime() - Date.now()) / 86400000));
+                  const totalDays = Math.ceil((new Date(cycleTimeline.endAt).getTime() - new Date(cycleTimeline.startAt).getTime()) / 86400000);
+                  const pct = Math.round(100 - (daysLeft / Math.max(totalDays, 1)) * 100);
+                  return (
+                    <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-2">
+                      <div className="flex justify-between text-xs text-slate-500 mb-1">
+                        <span>{new Date(cycleTimeline.startAt).toLocaleDateString()}</span>
+                        <span>{daysLeft}d left</span>
+                        <span>{new Date(cycleTimeline.endAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-xs text-slate-400 text-center mt-1">{pct}% complete</div>
+                    </div>
+                  );
+                })()}
+
+                {/* Day rows */}
+                {cycleTimeline.days.map(day => {
+                  const date = new Date(day.date);
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const isToday = day.date === todayStr;
+                  const isPast = day.date < todayStr;
+                  const isFuture = day.date > todayStr;
+                  const submittedDuties = day.duties.filter(d => d.status === 'SUBMITTED');
+                  const approvedDuties = day.duties.filter(d => d.status === 'APPROVED');
+                  const allDone = day.duties.length > 0 && day.duties.every(d => d.status === 'APPROVED');
+                  return (
+                    <div key={day.date} className={`rounded-2xl border p-4 transition-all ${
+                      isToday ? 'border-indigo-200 bg-indigo-50 shadow-sm' :
+                      submittedDuties.length > 0 ? 'border-blue-200 bg-blue-50' :
+                      allDone ? 'border-emerald-200 bg-emerald-50/50' :
+                      isPast ? 'border-slate-100 bg-slate-50/50 opacity-80' :
+                      'border-slate-100 bg-white'
+                    }`}>
+                      {/* Day header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`font-black text-sm ${isToday ? 'text-indigo-700' : isPast ? 'text-slate-500' : 'text-slate-700'}`}>
+                          {isToday && <span className="text-indigo-500 me-1">📍</span>}
+                          {isFuture && <span className="me-1">🔮</span>}
+                          {date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                          {isToday && <span className="ms-2 text-xs font-bold bg-indigo-500 text-white px-2 py-0.5 rounded-full">Today</span>}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {allDone && <span className="text-xs text-emerald-600 font-bold">✅ All done</span>}
+                          {submittedDuties.length > 0 && (
+                            <span className="text-xs text-blue-600 font-bold bg-blue-100 px-2 py-0.5 rounded-full">
+                              📬 {submittedDuties.length} to review
+                            </span>
+                          )}
+                          {day.duties.length > 0 && (
+                            <span className="text-xs text-slate-400">{approvedDuties.length}/{day.duties.length}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Duties */}
+                      {day.duties.length === 0 ? (
+                        <p className="text-xs text-slate-300 italic">No duties this day</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {day.duties.map(duty => (
+                            <div key={duty.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
+                              duty.status === 'APPROVED' ? 'bg-emerald-100/60' :
+                              duty.status === 'SUBMITTED' ? 'bg-white border border-blue-200' :
+                              isFuture ? 'bg-slate-50' : 'bg-white border border-slate-100'
+                            }`}>
+                              <span className="text-base">{AVATAR_EMOJI[duty.kidAvatarSlug] ?? AVATAR_EMOJI.default}</span>
+                              <span className="text-xs font-bold text-slate-600 w-16 shrink-0 truncate">{duty.kidName}</span>
+                              <span className="text-lg">{getDutyEmoji(duty.templateName ?? '')}</span>
+                              <span className="flex-1 font-semibold text-slate-700 truncate">{duty.templateName ?? 'Duty'}</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                duty.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                                duty.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {duty.status === 'APPROVED' ? '✅' : duty.status === 'SUBMITTED' ? '📬' : '⏳'}
+                                {' '}{duty.status === 'APPROVED' ? `${duty.points}pts` : duty.status === 'SUBMITTED' ? 'Review' : 'Pending'}
+                              </span>
+                              {duty.status === 'SUBMITTED' && (
+                                <button
+                                  onClick={() => handleTimelineApprove(duty.id)}
+                                  className="shrink-0 px-3 py-1 rounded-lg bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition">
+                                  Approve ✅
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Cycle Report Modal ───────────────────────────────────────── */}

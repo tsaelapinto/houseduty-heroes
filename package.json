@@ -14,6 +14,7 @@
     "db:studio": "npm run db:studio --workspace=packages/server",
     "test:integration": "npm test --workspace=packages/server",
     "test:e2e": "playwright test",
+    "test:prod": "playwright test --config=playwright.prod.config.ts",
     "test:all": "npm run test:integration && npm run test:e2e"
   },
   "devDependencies": {
