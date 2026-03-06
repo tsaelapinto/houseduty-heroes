@@ -10,7 +10,7 @@ interface Kid { id: string; name: string; avatarSlug: string; dutyInstances: Dut
 interface Template { id: string; name: string; defaultPoints: number; recurrence: string; }
 interface CycleInstance { id: string; status: string; date: string; pointsOverride?: number; template?: { name: string; defaultPoints: number }; }
 interface CycleDay { date: string; duties: CycleInstance[]; }
-interface KidSummary { kidId: string; kidName: string; avatarSlug: string; totalPoints: number; approved: number; total: number; }
+interface KidSummary { kidId: string; kidName: string; avatarSlug: string; totalPoints: number; approved: number; total: number; missed?: number; }
 interface CycleData { id: string; startAt: string; endAt: string; status: string; kidSummaries: KidSummary[]; }
 interface CycleReport { id: string; startAt: string; endAt: string; kidSummaries: KidSummary[]; }
 interface HeroDetail { kid: { id: string; name: string; avatarSlug: string }; cycle: CycleData | null; days: CycleDay[]; }
@@ -24,7 +24,7 @@ const AVATAR_EMOJI: Record<string, string> = {
 };
 const STATUS_COLORS: Record<string, string> = {
   ASSIGNED: 'bg-amber-100 text-amber-700', SUBMITTED: 'bg-blue-100 text-blue-700',
-  APPROVED: 'bg-emerald-100 text-emerald-700',
+  APPROVED: 'bg-emerald-100 text-emerald-700', MISSED: 'bg-red-100 text-red-600',
 };
 const AVATARS = [
   { slug: 'strawberry-elephant', emoji: '🐘' }, { slug: 'ballerina-capuchina', emoji: '🩰' },
@@ -583,6 +583,8 @@ const ParentDashboard = () => {
             const approved = kid.dutyInstances.filter(d => d.status === 'APPROVED').length;
             const total = kid.dutyInstances.length;
             const pct = total > 0 ? Math.round((approved / total) * 100) : 0;
+            const cycleSummary = cycleData?.kidSummaries?.find(ks => ks.kidId === kid.id);
+            const missedThisCycle = cycleSummary?.missed ?? 0;
             const avatar = AVATAR_EMOJI[kid.avatarSlug] ?? AVATAR_EMOJI.default;
             return (
               <div key={kid.id} data-testid="kid-card" className="bg-white rounded-2xl p-6 card-shadow border border-slate-100 hover:shadow-md transition-shadow flex flex-col">
@@ -604,7 +606,8 @@ const ParentDashboard = () => {
                   {pending > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.ASSIGNED}`}>⏳ {pending} {t('parent.status_pending_badge')}</span>}
                   {submitted > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.SUBMITTED}`}>📬 {submitted} {t('parent.status_review_badge')}</span>}
                   {approved > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.APPROVED}`}>✅ {approved} {t('parent.status_done_badge')}</span>}
-                  {total === 0 && <span className="text-xs text-slate-400">{t('parent.no_duties_yet')}</span>}
+                  {missedThisCycle > 0 && <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS.MISSED}`}>❌ {missedThisCycle} missed</span>}
+                  {total === 0 && missedThisCycle === 0 && <span className="text-xs text-slate-400">{t('parent.no_duties_yet')}</span>}
                 </div>
 
                 {/* Submitted duties to approve */}
@@ -1057,9 +1060,10 @@ const ParentDashboard = () => {
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               duty.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' :
                               duty.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-600' :
+                              duty.status === 'MISSED' ? 'bg-red-100 text-red-600' :
                               'bg-amber-100 text-amber-600'
                             }`}>
-                              {duty.status === 'APPROVED' ? '✅ Done' : duty.status === 'SUBMITTED' ? '📬 Review' : '⏳ Pending'}
+                              {duty.status === 'APPROVED' ? '✅ Done' : duty.status === 'SUBMITTED' ? '📬 Review' : duty.status === 'MISSED' ? '❌ Missed' : '⏳ Pending'}
                             </span>
                             <span className="text-xs text-slate-400">{duty.template?.defaultPoints ?? 0}pts</span>
                           </div>
@@ -1146,11 +1150,13 @@ const ParentDashboard = () => {
                   const isFuture = day.date > todayStr;
                   const submittedDuties = day.duties.filter(d => d.status === 'SUBMITTED');
                   const approvedDuties = day.duties.filter(d => d.status === 'APPROVED');
+                  const missedDuties = day.duties.filter(d => d.status === 'MISSED');
                   const allDone = day.duties.length > 0 && day.duties.every(d => d.status === 'APPROVED');
                   return (
                     <div key={day.date} className={`rounded-2xl border p-4 transition-all ${
                       isToday ? 'border-indigo-200 bg-indigo-50 shadow-sm' :
                       submittedDuties.length > 0 ? 'border-blue-200 bg-blue-50' :
+                      missedDuties.length > 0 && !allDone ? 'border-red-100 bg-red-50/30' :
                       allDone ? 'border-emerald-200 bg-emerald-50/50' :
                       isPast ? 'border-slate-100 bg-slate-50/50 opacity-80' :
                       'border-slate-100 bg-white'
@@ -1170,6 +1176,11 @@ const ParentDashboard = () => {
                               📬 {submittedDuties.length} to review
                             </span>
                           )}
+                          {missedDuties.length > 0 && (
+                            <span className="text-xs text-red-500 font-bold bg-red-100 px-2 py-0.5 rounded-full">
+                              ❌ {missedDuties.length} missed
+                            </span>
+                          )}
                           {day.duties.length > 0 && (
                             <span className="text-xs text-slate-400">{approvedDuties.length}/{day.duties.length}</span>
                           )}
@@ -1185,19 +1196,23 @@ const ParentDashboard = () => {
                             <div key={duty.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
                               duty.status === 'APPROVED' ? 'bg-emerald-100/60' :
                               duty.status === 'SUBMITTED' ? 'bg-white border border-blue-200' :
+                              duty.status === 'MISSED' ? 'bg-red-50/60 border border-red-100' :
                               isFuture ? 'bg-slate-50' : 'bg-white border border-slate-100'
                             }`}>
                               <span className="text-base">{AVATAR_EMOJI[duty.kidAvatarSlug] ?? AVATAR_EMOJI.default}</span>
                               <span className="text-xs font-bold text-slate-600 w-16 shrink-0 truncate">{duty.kidName}</span>
                               <span className="text-lg">{getDutyEmoji(duty.templateName ?? '')}</span>
-                              <span className="flex-1 font-semibold text-slate-700 truncate">{duty.templateName ?? 'Duty'}</span>
+                              <span className={`flex-1 font-semibold truncate ${
+                                duty.status === 'MISSED' ? 'text-slate-400 line-through' : 'text-slate-700'
+                              }`}>{duty.templateName ?? 'Duty'}</span>
                               <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
                                 duty.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
                                 duty.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                                duty.status === 'MISSED' ? 'bg-red-100 text-red-600' :
                                 'bg-amber-100 text-amber-700'
                               }`}>
-                                {duty.status === 'APPROVED' ? '✅' : duty.status === 'SUBMITTED' ? '📬' : '⏳'}
-                                {' '}{duty.status === 'APPROVED' ? `${duty.points}pts` : duty.status === 'SUBMITTED' ? 'Review' : 'Pending'}
+                                {duty.status === 'APPROVED' ? '✅' : duty.status === 'SUBMITTED' ? '📬' : duty.status === 'MISSED' ? '❌' : '⏳'}
+                                {' '}{duty.status === 'APPROVED' ? `${duty.points}pts` : duty.status === 'SUBMITTED' ? 'Review' : duty.status === 'MISSED' ? 'Missed' : 'Pending'}
                               </span>
                               {duty.status === 'SUBMITTED' && (
                                 <button

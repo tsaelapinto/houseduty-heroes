@@ -129,6 +129,13 @@ router.get('/:id/cycle-detail', async (req, res) => {
   });
   if (!cycle) return res.json({ kid, cycle: null, days: [] });
 
+  // Sweep past-day ASSIGNED → MISSED
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  await prisma.dutyInstance.updateMany({
+    where: { cycleId: cycle.id, status: 'ASSIGNED', date: { lt: today } },
+    data: { status: 'MISSED' },
+  });
+
   const instances = await prisma.dutyInstance.findMany({
     where: { kidId: req.params.id, cycleId: cycle.id },
     include: { template: true },

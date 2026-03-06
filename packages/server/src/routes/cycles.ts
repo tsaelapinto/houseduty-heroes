@@ -6,6 +6,16 @@ const router = Router();
 const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86_400_000);
 const startOfDay = (d: Date) => { const r = new Date(d); r.setHours(0, 0, 0, 0); return r; };
 
+// Marks all ASSIGNED duty instances whose date is strictly before today as MISSED.
+// Called lazily on read so no cron job is needed.
+const sweepMissed = async (cycleId: string) => {
+  const today = startOfDay(new Date());
+  await prisma.dutyInstance.updateMany({
+    where: { cycleId, status: 'ASSIGNED', date: { lt: today } },
+    data: { status: 'MISSED' },
+  });
+};
+
 // Returns an array of day-offsets (0-based) within a cycle that match the recurrence rule
 const recurrenceDays = (recurrence: string, startAt: Date, totalDays: number): number[] => {
   const days: number[] = [];
@@ -43,29 +53,41 @@ router.get('/active', async (req, res) => {
 
     if (!cycle) return res.json(null);
 
+    // Sweep past-day ASSIGNED instances to MISSED before summarising
+    await sweepMissed(cycle.id);
+
+    // Re-fetch after sweep so statuses are fresh
+    const freshInstances = await prisma.dutyInstance.findMany({
+      where: { cycleId: cycle.id },
+      include: { template: true, kid: true, approval: true },
+    });
+
     // Build per-kid summary
-    const kidMap: Record<string, { kidId: string; kidName: string; totalPoints: number; assigned: number; submitted: number; approved: number }> = {};
-    for (const inst of cycle.dutyInstances) {
+    const kidMap: Record<string, { kidId: string; kidName: string; avatarSlug: string; totalPoints: number; assigned: number; submitted: number; approved: number; missed: number }> = {};
+    for (const inst of freshInstances) {
       if (!kidMap[inst.kidId]) {
         kidMap[inst.kidId] = {
           kidId: inst.kidId,
           kidName: inst.kid.name,
+          avatarSlug: inst.kid.avatarSlug,
           totalPoints: 0,
           assigned: 0,
           submitted: 0,
           approved: 0,
+          missed: 0,
         };
       }
       const k = kidMap[inst.kidId];
       if (inst.status === 'ASSIGNED') k.assigned++;
       if (inst.status === 'SUBMITTED') k.submitted++;
+      if (inst.status === 'MISSED')   k.missed++;
       if (inst.status === 'APPROVED') {
         k.approved++;
         k.totalPoints += inst.approval?.pointsAwarded ?? inst.pointsOverride ?? inst.template?.defaultPoints ?? 0;
       }
     }
 
-    return res.json({ ...cycle, kidSummaries: Object.values(kidMap) });
+    return res.json({ ...cycle, dutyInstances: freshInstances, kidSummaries: Object.values(kidMap) });
   } catch (err) {
     console.error('GET /cycles/active error:', err);
     return res.status(500).json({ error: 'Failed to fetch active cycle' });
@@ -391,6 +413,21 @@ router.get('/timeline', async (req, res) => {
 
     if (!cycle) return res.json(null);
 
+    // Sweep past-day ASSIGNED instances to MISSED before building timeline
+    await sweepMissed(cycle.id);
+
+    // Re-fetch after sweep
+    const freshCycle = await prisma.cycle.findUnique({
+      where: { id: cycle.id },
+      include: {
+        dutyInstances: {
+          include: { template: true, kid: true, approval: true },
+          orderBy: { date: 'asc' },
+        },
+      },
+    });
+    if (!freshCycle) return res.json(null);
+
     // Build all days in the cycle (inclusive of startAt day)
     const totalDays = Math.max(1, Math.ceil(
       (new Date(cycle.endAt).getTime() - new Date(cycle.startAt).getTime()) / 86_400_000
@@ -408,7 +445,7 @@ router.get('/timeline', async (req, res) => {
       dayMap[key] = [];
     }
 
-    for (const inst of cycle.dutyInstances) {
+    for (const inst of freshCycle.dutyInstances) {
       const key = new Date(inst.date).toISOString().slice(0, 10);
       if (!dayMap[key]) dayMap[key] = [];
       dayMap[key].push({
@@ -427,7 +464,7 @@ router.get('/timeline', async (req, res) => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, duties]) => ({ date, duties }));
 
-    return res.json({ id: cycle.id, startAt: cycle.startAt, endAt: cycle.endAt, status: cycle.status, days });
+    return res.json({ id: freshCycle.id, startAt: freshCycle.startAt, endAt: freshCycle.endAt, status: freshCycle.status, days });
   } catch (err) {
     console.error('GET /cycles/timeline error:', err);
     return res.status(500).json({ error: 'Failed to fetch cycle timeline' });
