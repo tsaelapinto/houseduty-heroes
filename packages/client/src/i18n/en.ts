@@ -140,6 +140,7 @@ const en = {
       '3x': 'Mon·Wed·Fri',
       '2x': 'Tue·Thu',
       weekly: 'Once / week',
+      once_per_cycle: 'Once / cycle',
     },
   },
 

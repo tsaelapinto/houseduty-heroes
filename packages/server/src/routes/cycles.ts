@@ -99,7 +99,7 @@ router.get('/active', async (req, res) => {
 // Body: { householdId, mode: 'same' | 'rotate' | 'manual', manualAssignments?: [{ templateId, kidId }], durationDays?: number }
 router.post('/start', async (req, res) => {
   try {
-    const { householdId, mode = 'same', manualAssignments, durationDays } = req.body;
+    const { householdId, mode = 'same', manualAssignments, durationDays, startAt: startAtStr, endAt: endAtStr } = req.body;
     if (!householdId) return res.status(400).json({ error: 'householdId required' });
 
     // Fetch household config for default duration/timezone
@@ -112,11 +112,13 @@ router.post('/start', async (req, res) => {
       data: { status: 'CLOSED' },
     });
 
-    // 2. Determine start/end using timezone logic (simplified to local/UTC for now, assuming server handles offset)
-    const startAt = startOfDay(new Date());
+    // 2. Determine start/end — explicit dates take priority over durationDays
+    const startAt = startAtStr ? startOfDay(new Date(startAtStr)) : startOfDay(new Date());
     const freq = (household as any).cycleFrequency as string | undefined;
-    const finalDuration = Number(durationDays) || (freq === 'biweekly' ? 14 : freq === 'monthly' ? 30 : 7);
-    const endAt = addDays(startAt, finalDuration);
+    const finalDuration = endAtStr
+      ? Math.max(1, Math.round((startOfDay(new Date(endAtStr)).getTime() - startAt.getTime()) / 86_400_000))
+      : Number(durationDays) || (freq === 'biweekly' ? 14 : freq === 'monthly' ? 30 : 7);
+    const endAt = endAtStr ? startOfDay(new Date(endAtStr)) : addDays(startAt, finalDuration);
 
     // 3. Create new cycle
     const cycle = await prisma.cycle.create({
@@ -246,6 +248,99 @@ router.post('/start', async (req, res) => {
   }
 });
 
+// ─── PATCH /cycles/active/dates ───────────────────────────────────────────
+// Updates startAt / endAt of the active cycle.
+// When endAt is extended, new DutyInstances are generated for the added days.
+// When the range shrinks, ASSIGNED instances outside the new range are removed.
+router.patch('/active/dates', async (req, res) => {
+  try {
+    const { householdId, startAt: startAtStr, endAt: endAtStr } = req.body;
+    if (!householdId || !startAtStr || !endAtStr) {
+      return res.status(400).json({ error: 'householdId, startAt and endAt required' });
+    }
+
+    const cycle = await prisma.cycle.findFirst({
+      where: { householdId, status: 'ACTIVE' },
+      orderBy: { startAt: 'desc' },
+    });
+    if (!cycle) return res.status(404).json({ error: 'No active cycle' });
+
+    const newStart = startOfDay(new Date(startAtStr));
+    const newEnd   = startOfDay(new Date(endAtStr));
+    if (newEnd <= newStart) return res.status(400).json({ error: 'endAt must be after startAt' });
+
+    const oldEnd = startOfDay(new Date(cycle.endAt));
+
+    // 1. Delete ASSIGNED instances that fall outside the new [newStart, newEnd) window
+    await prisma.dutyInstance.deleteMany({
+      where: {
+        cycleId: cycle.id,
+        status: 'ASSIGNED',
+        OR: [
+          { date: { lt: newStart } },
+          { date: { gte: newEnd } },
+        ],
+      },
+    });
+
+    // 2. If end date extended, generate new instances for the added tail days
+    if (newEnd > oldEnd) {
+      // Discover existing assignment pairs from non-MISSED instances
+      const existing = await prisma.dutyInstance.findMany({
+        where: { cycleId: cycle.id, status: { not: 'MISSED' } },
+        select: { templateId: true, kidId: true },
+        distinct: ['templateId', 'kidId'],
+      });
+
+      const templateIds = [...new Set(existing.map(e => e.templateId).filter(Boolean))] as string[];
+      const recurrenceMap: Record<string, string> = {};
+      if (templateIds.length > 0) {
+        const tpls = await prisma.dutyTemplate.findMany({
+          where: { id: { in: templateIds } },
+          select: { id: true, recurrence: true },
+        });
+        for (const t of tpls) recurrenceMap[t.id] = t.recurrence ?? 'daily';
+      }
+
+      const totalDays = Math.round((newEnd.getTime() - newStart.getTime()) / 86_400_000);
+      const oldTotalDays = Math.round((oldEnd.getTime() - newStart.getTime()) / 86_400_000);
+      const newInstances: any[] = [];
+
+      for (const { templateId, kidId } of existing) {
+        if (!templateId) continue;
+        const recurrence = recurrenceMap[templateId] ?? 'daily';
+        const allDays = recurrenceDays(recurrence, newStart, totalDays);
+        // Only the newly-added days (offset >= oldTotalDays)
+        const addedDays = allDays.filter(d => d >= oldTotalDays);
+        for (const day of addedDays) {
+          newInstances.push({
+            cycleId: cycle.id,
+            templateId,
+            kidId,
+            date: addDays(newStart, day),
+            status: 'ASSIGNED',
+          });
+        }
+      }
+
+      if (newInstances.length > 0) {
+        await prisma.dutyInstance.createMany({ data: newInstances, skipDuplicates: true });
+      }
+    }
+
+    // 3. Persist updated dates on the cycle record
+    const updated = await prisma.cycle.update({
+      where: { id: cycle.id },
+      data: { startAt: newStart, endAt: newEnd },
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('PATCH /cycles/active/dates error:', err);
+    return res.status(500).json({ error: 'Failed to update cycle dates' });
+  }
+});
+
 // ─── POST /cycles/close ───────────────────────────────────────────────────
 router.post('/close', async (req, res) => {
   try {
@@ -317,7 +412,7 @@ router.get('/assignments', async (req, res) => {
     if (!cycle) return res.json({ cycleId: null, startAt: null, endAt: null, assignments: [] });
 
     const rows = await prisma.dutyInstance.findMany({
-      where: { cycleId: cycle.id },
+      where: { cycleId: cycle.id, status: { not: 'MISSED' } },
       select: { templateId: true, kidId: true },
       orderBy: { date: 'asc' },
     });

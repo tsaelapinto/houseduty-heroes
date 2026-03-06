@@ -42,7 +42,7 @@ const getDutyEmoji = (name: string) => {
   return found ? found[1] : DUTY_EMOJI.default;
 };
 
-const RECURRENCE_OPTIONS = ['daily', 'weekdays', 'weekends', '3x', '2x', 'weekly'];
+const RECURRENCE_OPTIONS = ['daily', 'weekdays', 'weekends', '3x', '2x', 'weekly', 'once_per_cycle'];
 
 const RecurrenceBadge = ({ r }: { r: string }) => {
   const { t } = useTranslation();
@@ -138,11 +138,17 @@ const ParentDashboard = () => {
   // Cycle panel state
   const [cycleData, setCycleData] = useState<CycleData | null>(null);
   const [cycleLoading, setCycleLoading] = useState(false);
-  const [cycleStartDays, setCycleStartDays] = useState(7);
+  const [cycleStartDate, setCycleStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [cycleEndDate, setCycleEndDate] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
   const [startingCycle, setStartingCycle] = useState(false);
   const [closingCycle, setClosingCycle] = useState(false);
   const [cycleHistory, setCycleHistory] = useState<CycleReport[]>([]);
   const [showCycleReport, setShowCycleReport] = useState<CycleReport | null>(null);
+  // Inline cycle date editing state
+  const [editingCycleDates, setEditingCycleDates] = useState(false);
+  const [cycleEditStart, setCycleEditStart] = useState('');
+  const [cycleEditEnd, setCycleEditEnd] = useState('');
+  const [savingCycleDates, setSavingCycleDates] = useState(false);
 
   // Cycle timeline state
   const [cycleTimeline, setCycleTimeline] = useState<TimelineData | null>(null);
@@ -397,11 +403,22 @@ const ParentDashboard = () => {
     if (!user?.householdId) return;
     setStartingCycle(true);
     try {
-      await apiClient.post('/cycles/start', { householdId: user.householdId, durationDays: cycleStartDays });
+      await apiClient.post('/cycles/start', { householdId: user.householdId, startAt: cycleStartDate, endAt: cycleEndDate });
       await refreshCycle();
       refreshKids();
     } catch (err: any) { alert(err.message || 'Failed to start cycle'); }
     finally { setStartingCycle(false); }
+  };
+
+  const handleSaveCycleDates = async () => {
+    if (!user?.householdId) return;
+    setSavingCycleDates(true);
+    try {
+      await apiClient.patch('/cycles/active/dates', { householdId: user.householdId, startAt: cycleEditStart, endAt: cycleEditEnd });
+      await refreshCycle();
+      setEditingCycleDates(false);
+    } catch (err: any) { alert(err.message || 'Failed to update cycle dates'); }
+    finally { setSavingCycleDates(false); }
   };
 
   const handleCloseCycle = async () => {
@@ -680,9 +697,31 @@ const ParentDashboard = () => {
           ) : cycleData ? (
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
-                <span className="text-slate-500 text-xs">
-                  {new Date(cycleData.startAt).toLocaleDateString()} → {new Date(cycleData.endAt).toLocaleDateString()}
-                </span>
+                {editingCycleDates ? (
+                  <>
+                    <input type="date" value={cycleEditStart} onChange={e => setCycleEditStart(e.target.value)}
+                      className="text-xs border border-slate-200 rounded-xl px-2 py-1 bg-white text-slate-700" />
+                    <span className="text-slate-400 text-xs">→</span>
+                    <input type="date" value={cycleEditEnd} onChange={e => setCycleEditEnd(e.target.value)}
+                      className="text-xs border border-slate-200 rounded-xl px-2 py-1 bg-white text-slate-700" />
+                    <button onClick={handleSaveCycleDates} disabled={savingCycleDates}
+                      className="px-2 py-1 rounded-xl bg-indigo-500 text-white font-bold text-xs hover:bg-indigo-600 transition disabled:opacity-50">
+                      {savingCycleDates ? 'Saving…' : '✓ Save'}
+                    </button>
+                    <button onClick={() => setEditingCycleDates(false)}
+                      className="px-2 py-1 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs hover:bg-slate-200 transition">
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-slate-500 text-xs">
+                      {new Date(cycleData.startAt).toLocaleDateString()} → {new Date(cycleData.endAt).toLocaleDateString()}
+                    </span>
+                    <button onClick={() => { setCycleEditStart(new Date(cycleData.startAt).toISOString().slice(0, 10)); setCycleEditEnd(new Date(cycleData.endAt).toISOString().slice(0, 10)); setEditingCycleDates(true); }}
+                      className="text-xs text-indigo-400 hover:text-indigo-600 hover:underline transition">✏️ Edit dates</button>
+                  </>
+                )}
                 {(() => {
                   const daysLeft = Math.max(0, Math.ceil((new Date(cycleData.endAt).getTime() - Date.now()) / 86400000));
                   const totalDays = Math.ceil((new Date(cycleData.endAt).getTime() - new Date(cycleData.startAt).getTime()) / 86400000);
@@ -722,12 +761,14 @@ const ParentDashboard = () => {
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-slate-400 flex-1">No active cycle yet.</p>
-              <select value={cycleStartDays} onChange={e => setCycleStartDays(Number(e.target.value))}
-                className="text-xs border border-slate-200 rounded-xl px-2 py-1.5 bg-white text-slate-700">
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-              </select>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <label className="text-xs text-slate-500">From</label>
+                <input type="date" value={cycleStartDate} onChange={e => setCycleStartDate(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-xl px-2 py-1.5 bg-white text-slate-700" />
+                <label className="text-xs text-slate-500">To</label>
+                <input type="date" value={cycleEndDate} onChange={e => setCycleEndDate(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-xl px-2 py-1.5 bg-white text-slate-700" />
+              </div>
               <button onClick={handleStartCycle} disabled={startingCycle}
                 className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-xs shadow hover:opacity-90 transition disabled:opacity-50">
                 {startingCycle ? 'Starting…' : '▶ Start Cycle'}
